@@ -107,7 +107,7 @@
       "evidence": "docs/specs/REPORT_PRESENTATION.md"
     },
     "MG-010": {
-      "owner": "Rahil",
+      "owner": "Shabaz",
       "kind": "BUILD",
       "dependsOn": [
         "MG-009"
