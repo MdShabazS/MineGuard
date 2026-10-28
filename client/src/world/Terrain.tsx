@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import * as THREE from 'three';
 import type { ThreeEvent } from '@react-three/fiber';
 import { sceneToWorld, terrainHeight, type WorldDefinition } from '../../../shared/world';
@@ -9,12 +9,54 @@ const HIGH = new THREE.Color('#8b8a5c');
 
 interface Props {
   world: WorldDefinition;
+  /** Live Esri view or local, user-authorized image. Never stored on the server. */
+  imageryUrl?: string | null;
+  onImageryState?: (state: 'loading' | 'ready' | 'error') => void;
   onPointerMove?: (e: ThreeEvent<PointerEvent>) => void;
   onPointerLeave?: () => void;
   onClick?: (e: ThreeEvent<MouseEvent>) => void;
 }
 
-export default function Terrain({ world, onPointerMove, onPointerLeave, onClick }: Props) {
+export default function Terrain({ world, imageryUrl, onImageryState, onPointerMove, onPointerLeave, onClick }: Props) {
+  const [texture, setTexture] = useState<THREE.Texture | null>(null);
+
+  useEffect(() => {
+    if (!imageryUrl) {
+      setTexture(null);
+      return;
+    }
+    let cancelled = false;
+    let loadedTexture: THREE.Texture | null = null;
+    onImageryState?.('loading');
+    const loader = new THREE.TextureLoader();
+    loader.setCrossOrigin('anonymous');
+    loader.load(
+      imageryUrl,
+      (next) => {
+        loadedTexture = next;
+        if (cancelled) {
+          next.dispose();
+          return;
+        }
+        next.colorSpace = THREE.SRGBColorSpace;
+        next.anisotropy = 4;
+        setTexture(next);
+        onImageryState?.('ready');
+      },
+      undefined,
+      () => {
+        if (cancelled) return;
+        setTexture(null);
+        onImageryState?.('error');
+      },
+    );
+    return () => {
+      cancelled = true;
+      loadedTexture?.dispose();
+    };
+  // Only reload when the selected map/image changes.
+  }, [imageryUrl, onImageryState]);
+
   const geometry = useMemo(() => {
     const width = world.xMax - world.xMin;
     const depth = world.zMax - world.zMin;
@@ -37,6 +79,8 @@ export default function Terrain({ world, onPointerMove, onPointerLeave, onClick 
     return geo;
   }, [world]);
 
+  useEffect(() => () => geometry.dispose(), [geometry]);
+
   return (
     <mesh
       name="terrain"
@@ -46,7 +90,11 @@ export default function Terrain({ world, onPointerMove, onPointerLeave, onClick 
       onPointerLeave={onPointerLeave}
       onClick={onClick}
     >
-      <meshStandardMaterial vertexColors roughness={0.95} flatShading={false} />
+      {texture && imageryUrl ? (
+        <meshStandardMaterial map={texture} roughness={1} metalness={0} />
+      ) : (
+        <meshStandardMaterial vertexColors roughness={0.95} flatShading={false} />
+      )}
     </mesh>
   );
 }
