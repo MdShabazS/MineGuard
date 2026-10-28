@@ -1,4 +1,4 @@
-# Rahil — Primary Implementer and Only QA Tester
+# Rahil — Original Implementer and Optional MG-011 Physical Test Partner
 
 Read latest GitHub repo, README, TASK_BOARD.md, docs/DECISIONS.md, docs/PROJECT_SPEC.md, docs/ARCHITECTURE.md and docs/WORKFLOW.md before starting. No local-only work: commit/push every meaningful code change, test record, run command and setup detail.
 
@@ -22,4 +22,4 @@ Read latest GitHub repo, README, TASK_BOARD.md, docs/DECISIONS.md, docs/PROJECT_
 BLOCKED MG-004: MG-003 is owned by Shabaz and not yet DONE in GitHub. Do not start MG-004. Ask Shabaz to commit his task, then re-fetch status.
 
 ## QA responsibility
-You alone perform software testing. Evidence must include environment/browser, exact command(s), observed results, known defects, screenshot/replay link and commit. No PASS claims without running actual checks.
+Historical MG-001–MG-008 tests were performed by Rahil. MG-010 used actual GitHub Actions QA. MG-011 is now under Shabaz's ChatGPT-assisted branch; Rahil or Shabaz may perform the **real two-physical-device** tests using docs/MG011_NETWORK_RUNBOOK.md. Every PASS must cite observed results, device/browser, test date and sanitized evidence; no CI-only claim is a physical test.
