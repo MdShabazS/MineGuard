@@ -160,3 +160,35 @@ test('MG-010 P18/P22: early stop and Live deletion retain accurate historical tr
     assert.ok(result.truth.some((o) => o.disposition === 'DETECTED' && o.eventNotes.some((n) => n.includes('DELETE'))));
   });
 });
+
+
+test('MG-010 P13/P16: a seeded decoy false alarm is FP, not a TP', async () => {
+  await withServer(async (s, base, advance) => {
+    const room = s.store.createRoom().room;
+    const decoy = s.store.createObject(room, { kind: 'DECOY', subtype: 'SCRAP', x: 70, z: 101 });
+    assert.ok(decoy.ok);
+    if (!decoy.ok) return;
+    assert.equal(s.store.lock(room).ok, true);
+    const id = begin(s, room, 'ADVANCED');
+    let seed = '';
+    for (let n = 0; n < 500; n++) {
+      const next = 'false-alarm-seed-' + n;
+      const draw = drawFromDigest(crypto.createHash('sha256').update(drawKey(next, id, decoy.value.id)).digest());
+      if (draw < 0.2) { seed = next; break; }
+    }
+    assert.ok(seed);
+    s.engine.latestMission(room.id)!.seed = seed;
+    s.store.db.prepare('UPDATE missions SET seed=? WHERE id=?').run(seed, id);
+    finish(s, advance);
+    const out = await req(base, 'POST', '/api/rooms/' + room.code + '/mission/' + id + '/reveal');
+    assert.equal(out.status, 200);
+    const result = (out.body as { result: import('../../shared/results.js').FrozenMissionResult }).result;
+    assert.deepEqual([result.metrics.tp, result.metrics.fp, result.metrics.fn, result.metrics.unscanned], [0, 1, 0, 0]);
+    assert.equal(result.metrics.precision, 0);
+    assert.equal(result.metrics.recall, null);
+    assert.equal(result.candidates.length, 1);
+    assert.equal(result.truth[0].disposition, 'DECOY_FALSE_ALARM');
+    const html = await fetch(base + '/api/rooms/' + room.code + '/mission/' + id + '/report').then((r) => r.text());
+    assert.match(html, /FP: decoy false alarm/);
+  });
+});
