@@ -129,9 +129,9 @@ Code: `shared/sensor.ts` (constants, `firstEntry`, `drawFromDigest`, `decide`, p
 | socket `observation:created` | New `PublicCandidate`, to the room's Blue **and** Red sockets |
 | Red tracking | `mission:snapshot`, `mission:telemetry` and `observation:created` also go to the room's Red channel (public-safe data). The Red UI toggle "Show defence drone…" draws them |
 
-## Under review (MG-010 branch, not yet released on main)
+## Implemented and verified (MG-010 — post-finish comparison and print export)
 
-Routes below are implemented on draft PR #1 and must not be represented as released until CI and merge succeed. All routes sit under the existing room-scoped mission router:
+Routes below are implemented in MG-010 and checked by GitHub CI (see tasks/evidence/MG-010.md). All routes sit under the existing room-scoped mission router:
 
 | Request | Expected result |
 |---|---|
