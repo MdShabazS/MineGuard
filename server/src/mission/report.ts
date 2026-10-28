@@ -70,7 +70,7 @@ export function renderPrintableReport(r: FrozenMissionResult): string {
   const m = r.metrics;
   const candidateRows = r.candidates.map((c) => {
     const t = r.truth.find((x) => x.candidateId === c.candidateId);
-    const classification = t?.kind === 'HAZARD' ? 'TP: synthetic hazard' : 'FP: decoy false alarm';
+    const classification = t?.disposition === 'DETECTED' ? 'TP: synthetic hazard' : 'FP: decoy false alarm';
     return '<tr><td>C' + c.number + '</td><td>' + esc(fixed(c.x) + ' / ' + fixed(c.z)) + '</td><td>' + fixed(c.simTimeSeconds) +
       '</td><td>' + esc(c.sensorMode + ' / ' + c.footprintProfile) + '</td><td>' + esc(c.review) +
       '</td><td>' + esc(classification) + '</td></tr>';
