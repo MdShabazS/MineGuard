@@ -1,6 +1,6 @@
 # Testing, Evidence and Faculty Demonstration
 
-**Rahil tested MG-001–MG-008. MG-010 was explicitly reassigned to Shabaz for ChatGPT-assisted development, with actual automated tests executed by GitHub Actions CI (not by Rahil). MG-011 two-device physical testing remains Rahil's responsibility.** Every BUILD task requires an honest tasks/evidence/MG-XXX.md file, with entries such as:
+**Rahil tested MG-001–MG-008. MG-010 was explicitly reassigned to Shabaz for ChatGPT-assisted development, with actual automated tests executed by GitHub Actions CI (not by Rahil). MG-011 implementation is Shabaz-authorized ChatGPT-assisted; physical two-device LAN and internet testing must be performed by Rahil or Shabaz, with actual evidence. CI simulated network tests alone are not sufficient.** Every BUILD task requires an honest tasks/evidence/MG-XXX.md file, with entries such as:
 Task: MG-001
 Owner: Rahil
 Tester: Rahil
