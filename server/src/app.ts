@@ -14,6 +14,7 @@ import { createWorldDefinition } from '../../shared/world.js';
 import { MissionEngine } from './mission/engine.js';
 import { missionRoutes } from './mission/routes.js';
 import { SensorEngine } from './mission/sensor.js';
+import { ResultsEngine } from './mission/results.js';
 import { attachRoomRealtime } from './rooms/realtime.js';
 import { roomRoutes } from './rooms/routes.js';
 import { RoomStore } from './rooms/store.js';
@@ -61,6 +62,9 @@ export function createMineGuardServer(options: ServerOptions = {}) {
   engine.sweepHook = (room, m, segments) => sensor.process(room, m, segments);
   engine.coverageOf = (m) => sensor.coverageFor(m);
   engine.candidatesOf = (missionId) => sensor.candidates(missionId);
+  const results = new ResultsEngine(store, engine, sensor, world);
+  engine.onStarted = (room, mission) => results.started(room, mission);
+  engine.onFinished = (room, mission) => results.finished(room, mission);
   if (options.autoTick !== false) engine.start();
 
   app.use(express.json({ limit: '100kb' }));
@@ -84,7 +88,7 @@ export function createMineGuardServer(options: ServerOptions = {}) {
 
   app.use(
     '/api/rooms/:code/mission',
-    missionRoutes(store, engine, sensor, (room) => rooms.toEveryone(room).emit('mission:snapshot', engine.snapshot(room))),
+    missionRoutes(store, engine, sensor, results, (room) => rooms.toEveryone(room).emit('mission:snapshot', engine.snapshot(room))),
   );
   // A Red lock or mode change alters whether Blue may start, so refresh Blue's mission snapshot too.
   app.use(
@@ -136,5 +140,5 @@ export function createMineGuardServer(options: ServerOptions = {}) {
     store.close();
   });
 
-  return { app, httpServer, io, store, engine, sensor };
+  return { app, httpServer, io, store, engine, sensor, results };
 }
