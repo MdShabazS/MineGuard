@@ -2,6 +2,7 @@
 // scenario, mission and observation messages (see docs/API_CONTRACT.md).
 
 import type { MissionSnapshot, MissionTelemetry } from './mission.js';
+import type { PublicCandidate } from './sensor.js';
 import type { AttackerRoomSnapshot, ErrorCode, PublicRoomSnapshot } from './scenario.js';
 
 export const APP_NAME = 'MineGuard V0.1';
@@ -49,6 +50,8 @@ export interface ServerToClientEvents {
   'mission:snapshot': (snapshot: MissionSnapshot) => void;
   /** Defender sockets: per-tick drone position (about 10 per second while RUNNING). */
   'mission:telemetry': (telemetry: MissionTelemetry) => void;
+  /** A new simulated candidate (public fields only), to the room's Blue and Red sockets. */
+  'observation:created': (candidate: PublicCandidate) => void;
 }
 
 export interface ClientToServerEvents {

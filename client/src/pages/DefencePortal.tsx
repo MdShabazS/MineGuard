@@ -1,12 +1,13 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { buildPlan, type CameraMode, type MissionPlan, type MissionPoint, type MissionSnapshot, type MissionTelemetry, type PlaybackSpeed, type PlanInput } from '../../../shared/mission';
+import { buildPlan, type CameraMode, type MissionPlan, type MissionPoint, type MissionSnapshot, type PlaybackSpeed, type PlanInput } from '../../../shared/mission';
 import { normalizeCoordinate, type PublicRoomSnapshot } from '../../../shared/scenario';
-import { DEFAULT_FOOTPRINT, DEFAULT_SENSOR_MODE, type FootprintProfile, type SensorMode } from '../../../shared/sensor';
+import { DEFAULT_FOOTPRINT, DEFAULT_SENSOR_MODE, FOOTPRINT_RADIUS, type FootprintProfile, type SensorMode } from '../../../shared/sensor';
 import type { Vec2 } from '../../../shared/world';
 import { ApiFailure, missionApi } from '../lib/api';
+import { useMissionState } from '../lib/useMissionState';
 import { useRoomSocket } from '../lib/useRoomSocket';
-import { Controls, GridEditor, ManualEditor, SensorConfig, Segmented, Telemetry, btnBlue, btnGhost, field, type GridDraft, type ManualDraft } from '../blue/BluePanels';
+import { Controls, Findings, GridEditor, ManualEditor, SensorConfig, Segmented, Telemetry, btnBlue, btnGhost, field, type GridDraft, type ManualDraft } from '../blue/BluePanels';
 import MissionLayer from '../blue/MissionLayer';
 import { Card } from '../red/RedPanels';
 import type { FollowTarget } from '../world/CameraRig';
@@ -15,13 +16,6 @@ import WorldView from '../world/WorldView';
 import PortalLayout from './PortalLayout';
 
 type PickMode = 'NONE' | 'WAYPOINT' | 'CORNERS';
-
-/** Keep the newest telemetry: a different mission replaces it, the same mission only moves forward. */
-function newer(prev: MissionTelemetry | null, next: MissionTelemetry | null): MissionTelemetry | null {
-  if (!next) return prev;
-  if (!prev || prev.missionId !== next.missionId) return next;
-  return next.sequence >= prev.sequence ? next : prev;
-}
 
 const sameRoute = (a: Omit<MissionPlan, 'id' | 'planRevision' | 'createdAt'>, b: MissionPlan) =>
   a.routeKind === b.routeKind && a.sensorMode === b.sensorMode && a.footprintProfile === b.footprintProfile && JSON.stringify(a.waypoints) === JSON.stringify(b.waypoints);
@@ -34,17 +28,10 @@ export default function DefencePortal() {
   const worldState = useWorld();
   const world = worldState.status === 'ready' ? worldState.world : null;
 
-  const [mission, setMission] = useState<MissionSnapshot | null>(null);
-  const [telemetry, setTelemetry] = useState<MissionTelemetry | null>(null);
-  const onMissionSnapshot = useCallback((s: MissionSnapshot) => {
-    setMission(s);
-    setTelemetry((prev) => newer(prev, s.mission));
-  }, []);
+  const { mission, telemetry, candidates, onMissionSnapshot, handlers } = useMissionState();
   // No attacker token: the server only ever sends public room + mission data to this page.
-  const { join, connected } = useRoomSocket<PublicRoomSnapshot>(roomCode, undefined, {
-    onMissionSnapshot,
-    onTelemetry: (t) => setTelemetry((prev) => newer(prev, t)),
-  });
+  const { join, connected } = useRoomSocket<PublicRoomSnapshot>(roomCode, undefined, handlers);
+  const [selectedCandidate, setSelectedCandidate] = useState<string | null>(null);
   const room = join.status === 'joined' ? join.snapshot : null;
   const api = useMemo(() => (roomCode ? missionApi(roomCode) : null), [roomCode]);
 
@@ -228,6 +215,10 @@ export default function DefencePortal() {
                 routeGrid={routeShown?.grid ?? null}
                 telemetry={showMission ? telemetry : null}
                 follow={follow}
+                footprintRadius={FOOTPRINT_RADIUS[(showMission ? mission!.mission!.plan : routeShown ?? { footprintProfile: profile }).footprintProfile]}
+                candidates={candidates}
+                selectedCandidate={selectedCandidate}
+                onSelectCandidate={setSelectedCandidate}
               />
             )}
             overlay={
@@ -260,8 +251,14 @@ export default function DefencePortal() {
               </div>
             }
           />
-          <Card title="FINDINGS" testId="findings-panel">
-            <p className="text-sm text-slate-400">Awaiting virtual sensing — MG-008. No simulated detections are generated yet, and none are shown.</p>
+          <Card title={`SIMULATED FINDINGS · ${candidates.length}`} testId="findings-panel">
+            <Findings
+              candidates={candidates}
+              selectedId={selectedCandidate}
+              onSelect={setSelectedCandidate}
+              hasMission={!!mission?.mission}
+              onReview={(id, review) => api && run(async () => (await api.review(id, review), { snapshot: await api.get() }))}
+            />
           </Card>
         </div>
 

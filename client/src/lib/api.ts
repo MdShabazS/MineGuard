@@ -53,6 +53,8 @@ export function missionApi(roomCode: string) {
     get: () => request<MissionSnapshot>('GET', base),
     plan: (body: Record<string, unknown>) => request<{ plan: MissionPlan; snapshot: MissionSnapshot }>('POST', `${base}/plan`, body),
     command: (cmd: MissionCommand) => request<{ snapshot: MissionSnapshot }>('POST', `${base}/command`, cmd),
+    review: (candidateId: string, review: 'NEW' | 'REVIEWED') =>
+      request<{ candidate: unknown }>('PATCH', `${base}/observations/${encodeURIComponent(candidateId)}/review`, { review }),
   };
 }
 

@@ -13,6 +13,7 @@ import {
 import { createWorldDefinition } from '../../shared/world.js';
 import { MissionEngine } from './mission/engine.js';
 import { missionRoutes } from './mission/routes.js';
+import { SensorEngine } from './mission/sensor.js';
 import { attachRoomRealtime } from './rooms/realtime.js';
 import { roomRoutes } from './rooms/routes.js';
 import { RoomStore } from './rooms/store.js';
@@ -43,17 +44,23 @@ export function createMineGuardServer(options: ServerOptions = {}) {
   let engine: MissionEngine;
   const rooms = attachRoomRealtime(io, store, {
     onDefenderJoin: (socket, room) => socket.emit('mission:snapshot', engine.snapshot(room)),
+    onAttackerJoin: (socket, room) => socket.emit('mission:snapshot', engine.snapshot(room)),
   });
   engine = new MissionEngine(
     store,
     world,
     {
-      missionChanged: (room, snapshot) => rooms.toPublic(room).emit('mission:snapshot', snapshot),
-      telemetry: (room, telemetry) => rooms.toPublic(room).emit('mission:telemetry', telemetry),
+      // Mission data is public-safe, so Red receives it too for optional drone tracking.
+      missionChanged: (room, snapshot) => rooms.toEveryone(room).emit('mission:snapshot', snapshot),
+      telemetry: (room, telemetry) => rooms.toEveryone(room).emit('mission:telemetry', telemetry),
       roomChanged: (room) => rooms.changed(room),
     },
     { tickMs: options.tickMs, now: options.now },
   );
+  const sensor = new SensorEngine(store, world, { candidate: (room, c) => rooms.toEveryone(room).emit('observation:created', c) }, (roomId) => engine.latestMission(roomId));
+  engine.sweepHook = (room, m, segments) => sensor.process(room, m, segments);
+  engine.coverageOf = (m) => sensor.coverageFor(m);
+  engine.candidatesOf = (missionId) => sensor.candidates(missionId);
   if (options.autoTick !== false) engine.start();
 
   app.use(express.json({ limit: '100kb' }));
@@ -75,14 +82,17 @@ export function createMineGuardServer(options: ServerOptions = {}) {
     res.json(world);
   });
 
-  app.use('/api/rooms/:code/mission', missionRoutes(store, engine));
+  app.use(
+    '/api/rooms/:code/mission',
+    missionRoutes(store, engine, sensor, (room) => rooms.toEveryone(room).emit('mission:snapshot', engine.snapshot(room))),
+  );
   // A Red lock or mode change alters whether Blue may start, so refresh Blue's mission snapshot too.
   app.use(
     '/api/rooms',
     roomRoutes(store, {
       changed: (room) => {
         rooms.changed(room);
-        rooms.toPublic(room).emit('mission:snapshot', engine.snapshot(room));
+        rooms.toEveryone(room).emit('mission:snapshot', engine.snapshot(room));
       },
     }),
   );
@@ -126,5 +136,5 @@ export function createMineGuardServer(options: ServerOptions = {}) {
     store.close();
   });
 
-  return { app, httpServer, io, store, engine };
+  return { app, httpServer, io, store, engine, sensor };
 }

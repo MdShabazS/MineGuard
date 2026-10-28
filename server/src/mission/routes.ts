@@ -1,13 +1,14 @@
 import express, { type Response } from 'express';
-import type { RoomStore } from '../rooms/store.js';
+import type { RoomRecord, RoomStore } from '../rooms/store.js';
 import type { MissionEngine, MissionFailure } from './engine.js';
+import type { SensorEngine } from './sensor.js';
 
 // Mission routes. The room code is the defender's guest credential: it allows
 // planning and flying, never reading or editing Red's hidden scenario.
 
 const send = (res: Response, f: MissionFailure) => res.status(f.status).json({ error: f.error, message: f.message });
 
-export function missionRoutes(store: RoomStore, engine: MissionEngine) {
+export function missionRoutes(store: RoomStore, engine: MissionEngine, sensor: SensorEngine, onReview: (room: RoomRecord) => void) {
   const router = express.Router({ mergeParams: true });
 
   router.use((req, res, next) => {
@@ -31,6 +32,23 @@ export function missionRoutes(store: RoomStore, engine: MissionEngine) {
     const r = engine.command(res.locals.room, req.body ?? {});
     if (!r.ok) return send(res, r);
     res.json({ snapshot: r.value });
+  });
+
+  // Public candidates of the room's latest mission. Never private objects or decisions.
+  router.get('/observations', (_req, res) => {
+    const m = engine.latestMission(res.locals.room.id);
+    res.json({ missionId: m?.id ?? null, candidates: m ? sensor.candidates(m.id) : [] });
+  });
+
+  // User review flag only: it never changes private truth or triggers a sensor trial.
+  router.patch('/observations/:candidateId/review', (req, res) => {
+    const review = req.body?.review;
+    if (review !== 'NEW' && review !== 'REVIEWED') return res.status(400).json({ error: 'INVALID_REQUEST', message: 'review must be NEW or REVIEWED.' });
+    const m = engine.latestMission(res.locals.room.id);
+    const c = m ? sensor.review(m.id, req.params.candidateId, review) : null;
+    if (!c) return res.status(404).json({ error: 'CANDIDATE_NOT_FOUND', message: 'No such candidate in this room\'s latest mission.' });
+    onReview(res.locals.room);
+    res.json({ candidate: c });
   });
 
   return router;

@@ -57,9 +57,10 @@
     },
     "MG-008": {
       "owner": "Rahil",
-      "state": "IN_PROGRESS",
-      "evidence": null,
-      "startedBy": "Rahil"
+      "state": "DONE",
+      "evidence": "tasks/evidence/MG-008.md",
+      "startedBy": "Rahil",
+      "completedBy": "Rahil"
     },
     "MG-009": {
       "owner": "Shabaz",

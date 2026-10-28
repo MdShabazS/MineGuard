@@ -13,6 +13,8 @@ const attackerChannel = (room: RoomRecord) => `red:${room.id}`;
 export interface RealtimeOptions {
   /** Extra state pushed to a defender socket right after it joins (e.g. the mission snapshot). */
   onDefenderJoin?: (socket: ClientSocket, room: RoomRecord) => void;
+  /** Same, for Red (optional drone tracking uses the public mission snapshot). */
+  onAttackerJoin?: (socket: ClientSocket, room: RoomRecord) => void;
 }
 
 export function attachRoomRealtime(io: IO, store: RoomStore, options: RealtimeOptions = {}) {
@@ -36,7 +38,9 @@ export function attachRoomRealtime(io: IO, store: RoomStore, options: RealtimeOp
         }
         joined = attackerChannel(room);
         socket.join(joined);
-        return ack({ ok: true, role: 'attacker', snapshot: store.attackerSnapshot(room) });
+        ack({ ok: true, role: 'attacker', snapshot: store.attackerSnapshot(room) });
+        options.onAttackerJoin?.(socket, room);
+        return;
       }
 
       joined = publicChannel(room);
@@ -52,6 +56,10 @@ export function attachRoomRealtime(io: IO, store: RoomStore, options: RealtimeOp
     /** Public (defender) channel only: mission data is public, never scenario objects. */
     toPublic(room: RoomRecord) {
       return io.to(publicChannel(room));
+    },
+    /** Both channels, for public-safe data Red may also see (drone tracking, public candidates). */
+    toEveryone(room: RoomRecord) {
+      return io.to([publicChannel(room), attackerChannel(room)]);
     },
     changed(room: RoomRecord) {
       io.to(attackerChannel(room)).emit('room:attacker-snapshot', store.attackerSnapshot(room));

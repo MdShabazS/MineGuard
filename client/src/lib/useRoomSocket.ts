@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { MissionSnapshot, MissionTelemetry } from '../../../shared/mission';
 import type { RoomJoinReply } from '../../../shared/protocol';
+import type { PublicCandidate } from '../../../shared/sensor';
 import type { AttackerRoomSnapshot, PublicRoomSnapshot } from '../../../shared/scenario';
 import { connectSocket } from './socket';
 
@@ -13,6 +14,7 @@ export type Join<S> =
 export interface MissionHandlers {
   onMissionSnapshot?: (s: MissionSnapshot) => void;
   onTelemetry?: (t: MissionTelemetry) => void;
+  onCandidate?: (c: PublicCandidate) => void;
 }
 
 /**
@@ -58,6 +60,7 @@ export function useRoomSocket<S extends PublicRoomSnapshot>(roomCode: string | n
     // Registered before joining, so the snapshot the server pushes right after the join is not missed.
     socket.on('mission:snapshot', (m) => handlersRef.current?.onMissionSnapshot?.(m));
     socket.on('mission:telemetry', (t) => handlersRef.current?.onTelemetry?.(t));
+    socket.on('observation:created', (c) => handlersRef.current?.onCandidate?.(c));
 
     return () => {
       socket.disconnect();

@@ -105,6 +105,30 @@ Types: `shared/mission.ts` (plan/telemetry/snapshot/command types, validation, g
 - `mission:telemetry` is sent about 10 times per second while RUNNING: `{ missionId, planId, status, endReason, simTimeSeconds, routeDistanceCompleted, routeLength, completedLegs, currentLegIndex, x, z, altitudeAboveGround, headingRadians, playbackSpeed, sequence, serverTime, pausedByRestart }`. Clients drop anything with a lower `sequence` for the same mission.
 - Red sockets receive the room state change only (drone tracking for Red is MG-008).
 
+## Implemented (MG-008) — virtual sensing, candidates, coverage, Live timing, Red tracking
+Code: `shared/sensor.ts` (constants, `firstEntry`, `drawFromDigest`, `decide`, public types) and `server/src/mission/sensor.ts` (`SensorEngine`, pure `sweep`, `CoverageGrid`).
+
+**Rules** (DETECTION_ACCEPTANCE sections 3–8):
+- Radii are NARROW 6 / STANDARD 10 / WIDE 16, with tolerance `1e-6`.
+- For each flown sub-segment, in order, the server solves the exact first entry `|A + sD − P| ≤ r` for every active placement not yet decided in this mission.
+- **BASIC:** every hazard gives one candidate (`DETECTED`); decoys give `DECOY_IGNORED`.
+- **ADVANCED:** one draw per object, `u` = first 53 bits of SHA-256(`seed|missionId|objectId|sim-v1`) divided by 2^53. Thresholds are SURFACE .90, OBSCURED .70, BURIED .50, and decoys .20 (`DETECTED` / `MISSED` / `FALSE_ALARM` / `DECOY_IGNORED`).
+- One decision per (mission, object). The decision (plus the candidate, if any) is committed in one transaction before broadcast, and survives restart without a re-roll.
+- **Live edits** carry the mission sim time. A created or moved placement only exists from that time, and a moved or deleted one stops at that time, both within the tick. There are no retroactive candidates. An edit while PAUSED is evaluated on the first RUNNING advance.
+
+**Public data only.**
+- `PublicCandidate` is `{ candidateId, missionId, number, x, z, simTimeSeconds, source:"SIMULATED", sensorMode, footprintProfile, review }`. It never includes the object ID, kind, subtype or outcome.
+- Private decisions live in the `sensor_decisions` table, read by `SensorEngine.decisions()`, for MG-010.
+
+| Method + path / event | Notes |
+|---|---|
+| `GET /api/rooms/:code/mission/observations` | `{ missionId, candidates[] }` for the latest mission |
+| `PATCH /api/rooms/:code/mission/observations/:candidateId/review` | `{ review: "NEW" \| "REVIEWED" }`. Review flag only; never changes decisions. Errors: 400 `INVALID_REQUEST`, 404 `CANDIDATE_NOT_FOUND` |
+| `MissionSnapshot.candidates` | All candidates of the latest mission (on join, refresh, every change) |
+| `MissionTelemetry.coverage` | `{ sweptArea, gridCoveragePercent, resolution: 1 }`: estimated union of the swept footprint along the flown path, on a fixed 1-unit cell grid (cell centres), clipped to the world. The percentage is for grid routes only; manual routes give `null` (N/A) |
+| socket `observation:created` | New `PublicCandidate`, to the room's Blue **and** Red sockets |
+| Red tracking | `mission:snapshot`, `mission:telemetry` and `observation:created` also go to the room's Red channel (public-safe data). The Red UI toggle "Show defence drone…" draws them |
+
 Everything below this line is a proposed target, not yet implemented.
 
 ## Suggested HTTP

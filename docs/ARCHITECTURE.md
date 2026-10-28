@@ -29,6 +29,12 @@ Defined once in `shared/world.ts`; the server builds it and serves it at `GET /a
 - Restart policy is fail-closed: RUNNING missions are restored as PAUSED at their last persisted position, with `pausedByRestart`.
 - Live-mode Red edits during a mission are stamped with the mission's current sim time in the audit (`missionSimTime`).
 
+## Virtual sensor (implemented, MG-008)
+- `SensorEngine` subscribes to `MissionEngine.sweepHook`. For each tick it adds the flown sub-segments to the coverage grid, loads the room's active placements plus any placements retired mid-tick by Live edits, and runs the pure `sweep()` (chronological, clipped to each placement's active span). It then decides and stores each new encounter in a transaction and publishes the public candidate.
+- `RoomStore.onObjectChange` tells the sensor about every Live create, move, update or delete together with its mission sim time (`missionClock`), so sub-tick timing is exact and nothing is retroactive.
+- Tables: `sensor_decisions` (private, PK mission+object) and `candidates` (public fields + review). Coverage is rebuilt deterministically from the flown distance after a restart.
+- The Blue 3D view draws the live footprint and swept region from the same `FOOTPRINT_RADIUS` constant the server uses. Swept region = a 2r ribbon per leg plus a disc at each passed waypoint; candidate pins are rose octahedra labelled C1, C2…
+
 ## Data flow
 Red UI -> attacker-authenticated placement commands -> server private scenario
 Blue UI -> mission planning/controls -> server-authoritative route & virtual drone

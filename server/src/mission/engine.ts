@@ -15,6 +15,7 @@ import {
   type PlanInput,
   type PlaybackSpeed,
 } from '../../../shared/mission.js';
+import type { CoverageEstimate, PublicCandidate } from '../../../shared/sensor.js';
 import type { WorldDefinition } from '../../../shared/world.js';
 import type { RoomRecord, RoomStore } from '../rooms/store.js';
 
@@ -80,6 +81,9 @@ export class MissionEngine {
   private latest = new Map<string, ActiveMission>();
   private timer: NodeJS.Timeout | null = null;
   sweepHook: SweepHook = () => {};
+  /** Provided by the sensor (MG-008). */
+  coverageOf: (m: ActiveMission) => CoverageEstimate | null = () => null;
+  candidatesOf: (missionId: string) => PublicCandidate[] = () => [];
 
   constructor(
     private store: RoomStore,
@@ -181,6 +185,11 @@ export class MissionEngine {
     return this.latest.get(room.id) ?? this.load(room.id);
   }
 
+  /** The room's latest mission (any status), for the sensor. */
+  latestMission(roomId: string): ActiveMission | null {
+    return this.latest.get(roomId) ?? this.load(roomId);
+  }
+
   private persist(m: ActiveMission) {
     this.store.db
       .prepare('UPDATE missions SET status = ?, end_reason = ?, sim_time = ?, distance = ?, speed = ?, sequence = ?, paused_by_restart = ?, updated_at = ? WHERE id = ?')
@@ -227,6 +236,7 @@ export class MissionEngine {
       sequence: m.sequence,
       serverTime: new Date().toISOString(),
       pausedByRestart: m.pausedByRestart,
+      coverage: this.coverageOf(m),
     };
   }
 
@@ -238,6 +248,7 @@ export class MissionEngine {
       plan,
       mission: m ? { ...this.telemetry(m), plan: m.plan } : null,
       startBlockedReason: this.startBlockedReason(room, plan),
+      candidates: m ? this.candidatesOf(m.id) : [],
     };
   }
 

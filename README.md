@@ -1,6 +1,6 @@
 # MineGuard V0.1 — Red Team / Blue Team Digital Twin
 
-**Status:** MG-001 scaffold, MG-002 shared 3D world, MG-004 rooms / private Red editing and MG-007 Blue mission planning / server-driven flight / cameras built and tested (see tasks/evidence/); virtual sensing (MG-008) and reports NOT STARTED. **Deadline:** 24-hour prototype.
+**Status:** MG-001 scaffold, MG-002 shared 3D world, MG-004 rooms / private Red editing, MG-007 mission planning / flight / cameras and MG-008 virtual sensing / candidates / Live timing / Red tracking built and tested (see tasks/evidence/); results comparison and report export (MG-010) NOT STARTED. **Deadline:** 24-hour prototype.
 **Authoritative source of truth:** This GitHub repository. No task is done based on a chat message or an unpushed local workspace.
 
 ## Goal
@@ -58,7 +58,7 @@ Routes: `/` home, `/red` Red Team portal (Create Room, or resume via the private
 - `shared/world.ts` — the one shared world and X/Z coordinate system (see docs/ARCHITECTURE.md).
 - `shared/scenario.ts` — scenario objects, categories, coordinate validation, error codes, edit rules.
 - `shared/mission.ts`, `shared/sensor.ts` — mission plans, manual/grid route validation, serpentine generator, flight geometry; sensor modes and footprint radii.
-- `server/src/mission/` — server-authoritative mission engine (clock, commands, persistence) and mission routes.
+- `server/src/mission/` — server-authoritative mission engine (clock, commands, persistence), virtual sensor (`sensor.ts`) and mission routes.
 - `client/src/blue/`, `client/src/world/CameraRig.tsx` — Blue planner/controls/telemetry, 3D route and drone, three camera modes.
 - `server/src/rooms/` — SQLite room store, attacker-only HTTP routes, role-separated Socket.IO channels.
 - `client/src/red/`, `client/src/world/ObjectMarkers.tsx` — Red portal panels and Red-only 3D markers.

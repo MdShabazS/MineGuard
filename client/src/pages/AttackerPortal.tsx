@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { OBJECT_CATEGORIES, canEditObjects, type AttackerRoomSnapshot } from '../../../shared/scenario';
+import { FOOTPRINT_RADIUS } from '../../../shared/sensor';
 import type { Vec2 } from '../../../shared/world';
 import { ApiFailure, attackerApi, createRoom, type MutationReply } from '../lib/api';
+import { useMissionState } from '../lib/useMissionState';
 import { useRoomSocket } from '../lib/useRoomSocket';
+import MissionLayer from '../blue/MissionLayer';
 import { Card, CategoryPicker, History, ObjectEditor, ObjectList, RoomShare, StateBadge, btnGhost, btnPrimary, input } from '../red/RedPanels';
 import ObjectMarkers from '../world/ObjectMarkers';
 import WorldView from '../world/WorldView';
@@ -24,7 +27,10 @@ function readHash(): Creds | null {
 
 export default function AttackerPortal() {
   const [creds, setCreds] = useState<Creds | null>(readHash);
-  const { join, connected, apply } = useRoomSocket<AttackerRoomSnapshot>(creds?.room ?? null, creds?.key);
+  // Red also receives the public mission stream, for optional drone tracking (decision 14).
+  const missionState = useMissionState();
+  const { join, connected, apply } = useRoomSocket<AttackerRoomSnapshot>(creds?.room ?? null, creds?.key, missionState.handlers);
+  const [tracking, setTracking] = useState(true);
   const api = useMemo(() => (creds ? attackerApi(creds.room, creds.key) : null), [creds]);
 
   const [category, setCategory] = useState(0);
@@ -145,11 +151,27 @@ export default function AttackerPortal() {
           <WorldView
             onPick={onPick}
             crosshair={placeMode && editable}
-            renderScene={(world) =>
-              snapshot && (
-                <ObjectMarkers world={world} objects={snapshot.objects} selectedId={selectedId} onSelect={setSelectedId} pending={pending} />
-              )
-            }
+            renderScene={(world) => {
+              const m = missionState.mission?.mission;
+              const showDrone = tracking && m && missionState.telemetry;
+              return (
+                <>
+                  {snapshot && <ObjectMarkers world={world} objects={snapshot.objects} selectedId={selectedId} onSelect={setSelectedId} pending={pending} />}
+                  {showDrone && (
+                    <MissionLayer
+                      world={world}
+                      draft={null}
+                      draftGrid={null}
+                      route={m.plan.waypoints}
+                      routeGrid={m.plan.grid}
+                      telemetry={missionState.telemetry}
+                      footprintRadius={FOOTPRINT_RADIUS[m.plan.footprintProfile]}
+                      candidates={missionState.candidates}
+                    />
+                  )}
+                </>
+              );
+            }}
             overlay={
               <div className="pointer-events-none absolute right-3 top-3 flex gap-2">
                 <span className="rounded bg-black/60 px-2 py-1 text-[11px] font-semibold tracking-widest text-rose-200">RED VIEW · HIDDEN FROM BLUE</span>
@@ -203,6 +225,15 @@ export default function AttackerPortal() {
                     🔒 Lock Scenario
                   </button>
                 </div>
+                <label className="flex items-center gap-2 text-sm">
+                  <input data-testid="tracking-toggle" type="checkbox" checked={tracking} onChange={(e) => setTracking(e.target.checked)} />
+                  Show defence drone, footprint and public candidates
+                  {missionState.telemetry && (
+                    <span data-testid="red-tracking-status" className="ml-auto text-xs text-slate-400">
+                      {missionState.telemetry.status} · {missionState.candidates.length} candidates
+                    </span>
+                  )}
+                </label>
                 <p className="text-xs text-slate-500">
                   {snapshot.mode === 'CHALLENGE'
                     ? 'Challenge: place everything, then lock before the defence flight. Locked scenarios cannot be edited.'

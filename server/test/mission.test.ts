@@ -490,7 +490,7 @@ describe('realtime and privacy', () => {
     await setLive(r);
     const hidden = [
       ['HAZARD', 'SURFACE', 37.3, 141.7],
-      ['HAZARD', 'BURIED', 81.9, 21.3],
+      ['HAZARD', 'BURIED', 181.9, 21.3],
       ['DECOY', 'CONTAINER', 133.3, 96.7],
     ] as const;
     const ids: string[] = [];
@@ -514,7 +514,7 @@ describe('realtime and privacy', () => {
       assert.ok(!traffic.includes(w), `"${w}" leaked to Blue`);
     }
     // Telemetry carries unrounded floats, so match coordinates as whole numbers only.
-    for (const n of ['37.3', '141.7', '81.9', '21.3', '133.3', '96.7', '55.5']) assert.ok(!hasNumber(traffic, n), `coordinate ${n} leaked to Blue`);
+    for (const n of ['37.3', '141.7', '181.9', '21.3', '133.3', '96.7', '55.5']) assert.ok(!hasNumber(traffic, n), `coordinate ${n} leaked to Blue`);
   });
 
   test('M30 Red rules intact: Challenge stays read-only in flight; Live edits are audited with mission sim time', async () => {

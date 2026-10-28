@@ -1,9 +1,12 @@
 import { useMemo, useRef, type MutableRefObject } from 'react';
+import type { ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import { BASE_SPEED, cumulative, poseAt, type GridSpec, type MissionPoint, type MissionTelemetry } from '../../../shared/mission';
+import type { PublicCandidate } from '../../../shared/sensor';
 import { terrainHeight, worldToScene, type WorldDefinition } from '../../../shared/world';
+import { CLICK_MAX_DRAG_PX } from '../world/WorldView';
 import type { FollowTarget } from '../world/CameraRig';
 
 const ROUTE_LIFT = 0.7;
@@ -51,7 +54,7 @@ function Waypoints({ world, points, label }: { world: WorldDefinition; points: M
         const [sx, sy, sz] = worldToScene(world, p.x, p.z);
         const isStart = i === 0;
         const isEnd = i === points.length - 1;
-        const color = isStart ? '#34d399' : isEnd ? '#f472b6' : '#7dd3fc';
+        const color = isStart ? '#34d399' : isEnd ? '#a78bfa' : '#7dd3fc';
         return (
           <group key={i} position={[sx, sy + ROUTE_LIFT, sz]}>
             <mesh raycast={() => null}>
@@ -121,13 +124,118 @@ function DroneModel({ spinning }: { spinning: boolean }) {
   );
 }
 
+const DISC_SEGMENTS = 40;
+const FOOTPRINT_LIFT = 0.35;
+
+/** Disc whose vertices follow the terrain, centred at world (x, z). */
+function drapedDisc(world: WorldDefinition, x: number, z: number, r: number, lift: number) {
+  const geo = new THREE.CircleGeometry(r, DISC_SEGMENTS);
+  geo.rotateX(-Math.PI / 2);
+  const pos = geo.attributes.position;
+  const [sx, , sz] = worldToScene(world, x, z);
+  for (let i = 0; i < pos.count; i++) {
+    const dx = pos.getX(i);
+    const dz = pos.getZ(i);
+    pos.setXYZ(i, sx + dx, terrainHeight(world, x + dx, z + dz) + lift, sz + dz);
+  }
+  return geo;
+}
+
+/**
+ * Swept-region visual: a 2r-wide ribbon along the route plus a disc at every
+ * waypoint (filling the outer wedge at turns), revealed only as far as the
+ * drone has actually flown. Matches the server's coverage model in X/Z.
+ */
+function useSweptGeometry(world: WorldDefinition, points: MissionPoint[], r: number) {
+  return useMemo(() => {
+    const cum = cumulative(points);
+    const verts: number[] = [];
+    const idx: number[] = [];
+    const dists: number[] = [];
+    let i = 0;
+    for (let leg = 0; leg < points.length - 1; leg++) {
+      const a = points[leg];
+      const b = points[leg + 1];
+      const len = cum[leg + 1] - cum[leg];
+      const ux = (b.x - a.x) / len;
+      const uz = (b.z - a.z) / len;
+      // Perpendicular to this leg; each leg gets its own strip so turns never fold.
+      const px = uz;
+      const pz = -ux;
+      const steps = Math.max(1, Math.ceil(len / SAMPLE_STEP));
+      for (let k = 0; k <= steps; k++) {
+        const t = k / steps;
+        const x = a.x + (b.x - a.x) * t;
+        const z = a.z + (b.z - a.z) * t;
+        for (const side of [1, -1]) {
+          const wx = x + side * px * r;
+          const wz = z + side * pz * r;
+          const [sx, , sz] = worldToScene(world, wx, wz);
+          verts.push(sx, terrainHeight(world, wx, wz) + 0.25, sz);
+        }
+        dists.push(cum[leg] + len * t);
+        if (k > 0) {
+          const v = (i - 1) * 2;
+          idx.push(v, v + 1, v + 2, v + 1, v + 3, v + 2);
+        }
+        i++;
+      }
+    }
+    const ribbon = new THREE.BufferGeometry();
+    ribbon.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+    ribbon.setIndex(idx);
+    ribbon.setDrawRange(0, 0);
+    // Quad index for each sample (quads are only between samples of the same leg).
+    const quadsBefore: number[] = [];
+    let q = 0;
+    let sample = 0;
+    for (let leg = 0; leg < points.length - 1; leg++) {
+      const steps = Math.max(1, Math.ceil((cum[leg + 1] - cum[leg]) / SAMPLE_STEP));
+      for (let k = 0; k <= steps; k++) {
+        quadsBefore[sample++] = q;
+        if (k < steps) q++;
+      }
+    }
+    const discs = points.map((p) => drapedDisc(world, p.x, p.z, r, 0.25));
+    return { ribbon, dists, quadsBefore, discs, cum };
+  }, [world, points, r]);
+}
+
+const SWEPT_MATERIAL = new THREE.MeshBasicMaterial({ color: '#2dd4bf', transparent: true, opacity: 0.16, depthWrite: false, side: THREE.DoubleSide });
+
 /**
  * The drone and the flown path. The server sends ~10 positions/s; between them
  * the drone eases along the route by distance (so it follows turns exactly,
  * never cutting a corner). Purely visual: the server owns the real position.
  */
-function Drone({ world, points, telemetry, follow }: { world: WorldDefinition; points: MissionPoint[]; telemetry: MissionTelemetry; follow?: MutableRefObject<FollowTarget | null> }) {
+function Drone({
+  world,
+  points,
+  telemetry,
+  follow,
+  radius,
+}: {
+  world: WorldDefinition;
+  points: MissionPoint[];
+  telemetry: MissionTelemetry;
+  follow?: MutableRefObject<FollowTarget | null>;
+  /** Virtual footprint radius from shared/sensor.ts (the same value the server senses with). */
+  radius: number;
+}) {
   const route = useMemo(() => sampleRoute(world, points), [world, points]);
+  const swept = useSweptGeometry(world, points, radius);
+  const discRefs = useRef<(THREE.Mesh | null)[]>([]);
+  const footprint = useMemo(() => {
+    const fill = new THREE.CircleGeometry(radius, DISC_SEGMENTS);
+    fill.rotateX(-Math.PI / 2);
+    const ringPts = Array.from({ length: DISC_SEGMENTS + 1 }, (_, i) => {
+      const a = (i / DISC_SEGMENTS) * Math.PI * 2;
+      return new THREE.Vector3(Math.cos(a) * radius, 0, Math.sin(a) * radius);
+    });
+    const ring = new THREE.Line(new THREE.BufferGeometry().setFromPoints(ringPts), new THREE.LineBasicMaterial({ color: '#5eead4' }));
+    return { fill, ring, base: Float32Array.from(fill.attributes.position.array) };
+  }, [radius]);
+  const footprintGroup = useRef<THREE.Group>(null);
   const flown = useMemo(() => {
     const l = new THREE.Line(route.geo.clone(), new THREE.LineBasicMaterial({ color: '#22d3ee' }));
     l.geometry.setDrawRange(0, 0);
@@ -167,6 +275,24 @@ function Drone({ world, points, telemetry, follow }: { world: WorldDefinition; p
     let n = 0;
     while (n < route.dist.length && route.dist[n] <= s.distance) n++;
     flown.geometry.setDrawRange(0, n);
+    // Swept region so far: ribbon up to the drone, plus discs at start and every passed waypoint.
+    let m = 0;
+    while (m < swept.dists.length && swept.dists[m] <= s.distance) m++;
+    swept.ribbon.setDrawRange(0, (m > 0 ? swept.quadsBefore[m - 1] : 0) * 6);
+    swept.cum.forEach((c, i) => {
+      const d = discRefs.current[i];
+      if (d) d.visible = c <= s.distance + 1e-6;
+    });
+    // Live footprint, draped over the terrain under the drone.
+    if (footprintGroup.current) {
+      footprintGroup.current.position.set(sx, 0, sz);
+      const fp = footprint.fill.attributes.position;
+      for (let i = 0; i < fp.count; i++) fp.setY(i, terrainHeight(world, pose.x + footprint.base[i * 3], pose.z + footprint.base[i * 3 + 2]) + FOOTPRINT_LIFT);
+      fp.needsUpdate = true;
+      const rp = footprint.ring.geometry.attributes.position;
+      for (let i = 0; i < rp.count; i++) rp.setY(i, terrainHeight(world, pose.x + rp.getX(i), pose.z + rp.getZ(i)) + FOOTPRINT_LIFT + 0.05);
+      rp.needsUpdate = true;
+    }
     if (follow) {
       follow.current ??= { position: new THREE.Vector3(), heading: 0 };
       follow.current.position.set(sx, y, sz);
@@ -176,6 +302,16 @@ function Drone({ world, points, telemetry, follow }: { world: WorldDefinition; p
 
   return (
     <group name="drone">
+      <mesh geometry={swept.ribbon} material={SWEPT_MATERIAL} raycast={() => null} renderOrder={1} />
+      {swept.discs.map((g, i) => (
+        <mesh key={i} ref={(el) => void (discRefs.current[i] = el)} geometry={g} material={SWEPT_MATERIAL} visible={false} raycast={() => null} renderOrder={1} />
+      ))}
+      <group ref={footprintGroup} name="virtual-footprint">
+        <mesh geometry={footprint.fill} raycast={() => null} renderOrder={2}>
+          <meshBasicMaterial color="#5eead4" transparent opacity={0.22} depthWrite={false} side={THREE.DoubleSide} />
+        </mesh>
+        <primitive object={footprint.ring} />
+      </group>
       <primitive object={flown} />
       <group ref={body}>
         <DroneModel spinning={telemetry.status === 'RUNNING'} />
@@ -184,6 +320,56 @@ function Drone({ world, points, telemetry, follow }: { world: WorldDefinition; p
         <ringGeometry args={[1.6, 2.4, 24]} />
         <meshBasicMaterial color="#000000" transparent opacity={0.35} />
       </mesh>
+    </group>
+  );
+}
+
+/** Server-emitted simulated candidates. Distinct from waypoints, drone, swept area and (later) revealed truth. */
+function CandidatePins({ world, candidates, selectedId, onSelect }: { world: WorldDefinition; candidates: PublicCandidate[]; selectedId: string | null; onSelect?: (id: string) => void }) {
+  const rings = useRef<THREE.Group>(null);
+  useFrame(({ clock }) => {
+    if (rings.current) for (const c of rings.current.children) c.scale.setScalar(1 + 0.25 * Math.sin(clock.elapsedTime * 4));
+  });
+  return (
+    <group name="candidates">
+      {candidates.map((c) => {
+        const [sx, sy, sz] = worldToScene(world, c.x, c.z);
+        const selected = c.candidateId === selectedId;
+        const click = (e: ThreeEvent<MouseEvent>) => {
+          e.stopPropagation();
+          if (e.delta <= CLICK_MAX_DRAG_PX) onSelect?.(c.candidateId);
+        };
+        return (
+          <group key={c.candidateId} position={[sx, sy, sz]}>
+            <mesh position={[0, 3, 0]} raycast={() => null}>
+              <cylinderGeometry args={[0.15, 0.15, 6, 6]} />
+              <meshBasicMaterial color="#fb7185" />
+            </mesh>
+            <mesh position={[0, 6.8, 0]} raycast={() => null}>
+              <octahedronGeometry args={[selected ? 2.1 : 1.5]} />
+              <meshStandardMaterial color={selected ? '#fde047' : '#f43f5e'} emissive={selected ? '#facc15' : '#e11d48'} emissiveIntensity={0.6} />
+            </mesh>
+            <mesh position={[0, 4, 0]} visible={false} onClick={click}>
+              <cylinderGeometry args={[2.6, 2.6, 9, 8]} />
+              <meshBasicMaterial />
+            </mesh>
+            <Html position={[0, 10, 0]} center className="pointer-events-none select-none">
+              <div className={`rounded px-1 text-[10px] font-bold ${selected ? 'bg-yellow-300 text-black' : 'bg-rose-600 text-white'}`}>C{c.number}</div>
+            </Html>
+          </group>
+        );
+      })}
+      <group ref={rings}>
+        {candidates.map((c) => {
+          const [sx, sy, sz] = worldToScene(world, c.x, c.z);
+          return (
+            <mesh key={c.candidateId} position={[sx, sy + 0.5, sz]} rotation-x={-Math.PI / 2} raycast={() => null}>
+              <ringGeometry args={[2.2, 3, 24]} />
+              <meshBasicMaterial color={c.candidateId === selectedId ? '#fde047' : '#fb7185'} transparent opacity={0.8} />
+            </mesh>
+          );
+        })}
+      </group>
     </group>
   );
 }
@@ -198,9 +384,14 @@ interface Props {
   routeGrid: GridSpec | null;
   telemetry: MissionTelemetry | null;
   follow?: MutableRefObject<FollowTarget | null>;
+  /** Footprint radius of the flying mission (from shared/sensor.ts). */
+  footprintRadius?: number;
+  candidates?: PublicCandidate[];
+  selectedCandidate?: string | null;
+  onSelectCandidate?: (id: string) => void;
 }
 
-export default function MissionLayer({ world, draft, draftGrid, route, routeGrid, telemetry, follow }: Props) {
+export default function MissionLayer({ world, draft, draftGrid, route, routeGrid, telemetry, follow, footprintRadius = 10, candidates = [], selectedCandidate = null, onSelectCandidate }: Props) {
   // With no drone yet, Follow mode looks at the route start.
   if (!telemetry && follow) {
     const start = route?.[0] ?? draft?.[0];
@@ -217,7 +408,8 @@ export default function MissionLayer({ world, draft, draftGrid, route, routeGrid
       {draft && <Waypoints world={world} points={draft} label={draft.length <= 30} />}
       {route && !draft && <RouteLine world={world} points={route} color="#38bdf8" opacity={0.75} />}
       {route && !draft && <Waypoints world={world} points={route} label={route.length <= 30} />}
-      {route && telemetry && <Drone world={world} points={route} telemetry={telemetry} follow={follow} />}
+      {route && telemetry && <Drone world={world} points={route} telemetry={telemetry} follow={follow} radius={footprintRadius} />}
+      <CandidatePins world={world} candidates={candidates} selectedId={selectedCandidate} onSelect={onSelectCandidate} />
     </group>
   );
 }

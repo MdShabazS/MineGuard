@@ -93,7 +93,7 @@ test('MG-007 Blue mission planning, flight controls, cameras, refresh and privac
   const room = await api('POST', '/api/rooms');
   const hidden: [string, string, number, number][] = [
     ['HAZARD', 'SURFACE', 37.3, 141.7],
-    ['HAZARD', 'BURIED', 81.9, 21.3],
+    ['HAZARD', 'BURIED', 181.9, 21.3],
     ['DECOY', 'SCRAP', 133.3, 96.7],
   ];
   const ids: string[] = [];
@@ -257,7 +257,8 @@ test('MG-007 Blue mission planning, flight controls, cameras, refresh and privac
   assert.match((await blue.textContent('[data-testid="tel-progress"]'))!, /^100\.0%/);
   // Two lanes along X: (20,20)->(60,20)->(60,40)->(20,40), so the serpentine ends back at X 20.
   assert.equal((await blue.textContent('[data-testid="tel-xz"]'))!.trim(), '20.0 / 40.0');
-  assert.match((await blue.textContent('[data-testid="findings-panel"]'))!, /Awaiting virtual sensing/);
+  // Hidden objects are off-route or Basic-ignored decoys, so no candidate may appear.
+  assert.match((await blue.textContent('[data-testid="findings-panel"]'))!, /No candidates yet/);
 
   // ---- M29: nothing hidden reached Blue --------------------------------------------
   const traffic = received.join('\n').replace(/\d{4}-\d\d-\d\dT[\d:.]+Z/g, '<time>');
@@ -267,7 +268,7 @@ test('MG-007 Blue mission planning, flight controls, cameras, refresh and privac
     assert.ok(!traffic.includes(w), `"${w}" leaked to Blue`);
   }
   // Telemetry carries unrounded floats (e.g. distance 96.79...), so match coordinates as whole numbers.
-  for (const n of ['37.3', '141.7', '81.9', '21.3', '133.3', '96.7']) assert.ok(!hasNumber(traffic, n), `coordinate ${n} leaked to Blue`);
+  for (const n of ['37.3', '141.7', '181.9', '21.3', '133.3', '96.7']) assert.ok(!hasNumber(traffic, n), `coordinate ${n} leaked to Blue`);
   const dom = await blue.evaluate(() => document.documentElement.outerHTML + JSON.stringify({ ...localStorage }) + JSON.stringify({ ...sessionStorage }));
   for (const id of ids) assert.ok(!dom.includes(id));
   assert.ok(!dom.includes(room.attackerToken));

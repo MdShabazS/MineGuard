@@ -80,6 +80,8 @@ export class RoomStore {
   readonly db: DatabaseSync;
   /** Set by the mission engine: current mission sim time for a room, stamped on audit events. */
   missionClock: (roomId: string) => number | null = () => null;
+  /** Set by the sensor: told about every object change with its mission sim time (Live timing). */
+  onObjectChange: (room: RoomRecord, action: AuditAction, objectId: string | null, before: unknown, after: unknown, missionSimTime: number | null) => void = () => {};
 
   constructor(
     dbPath: string,
@@ -169,6 +171,11 @@ export class RoomStore {
     return (row as unknown as RoomRecord | undefined) ?? null;
   }
 
+  /** Current active placements (server-side sensing only; never sent to Blue). */
+  activeObjects(room: RoomRecord): ScenarioObject[] {
+    return (this.db.prepare('SELECT * FROM objects WHERE room_id = ? AND deleted_at IS NULL ORDER BY created_at, id').all(room.id) as unknown as ObjectRow[]).map(toObject);
+  }
+
   findRoomById(id: string): RoomRecord | null {
     const row = this.db.prepare('SELECT id, code, mode, state, revision FROM rooms WHERE id = ?').get(id);
     return (row as unknown as RoomRecord | undefined) ?? null;
@@ -224,6 +231,7 @@ export class RoomStore {
     this.db
       .prepare('INSERT INTO audit (id, room_id, revision, object_id, action, server_time, mission_sim_time, before_json, after_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
       .run(crypto.randomUUID(), room.id, room.revision, objectId, action, now, missionSimTime, before ? JSON.stringify(before) : null, after ? JSON.stringify(after) : null);
+    this.onObjectChange(room, action, objectId, before, after, missionSimTime);
   }
 
   private editableCheck(room: RoomRecord): Failure | null {

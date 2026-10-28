@@ -2,7 +2,7 @@
 // (MISSION_ACCEPTANCE.md). Routes are fictional virtual X/Z paths, not GPS.
 
 import { normalizeCoordinate, parseNumber } from './scenario.js';
-import { isFootprintProfile, isSensorMode, maxGapFreeSpacing, type FootprintProfile, type SensorMode } from './sensor.js';
+import { isFootprintProfile, isSensorMode, maxGapFreeSpacing, type CoverageEstimate, type FootprintProfile, type PublicCandidate, type SensorMode } from './sensor.js';
 import { roundCoord, type WorldDefinition } from './world.js';
 
 export type RouteKind = 'MANUAL' | 'GRID';
@@ -74,6 +74,8 @@ export interface MissionTelemetry {
   serverTime: string;
   /** True if the server restarted mid-flight and paused the mission instead of catching up. */
   pausedByRestart: boolean;
+  /** Estimated virtual coverage of the actually flown path (MG-008). */
+  coverage: CoverageEstimate | null;
 }
 
 /** Everything a joined participant may see about the mission. No scenario objects, ever. */
@@ -84,6 +86,8 @@ export interface MissionSnapshot {
   mission: (MissionTelemetry & { plan: MissionPlan }) | null;
   /** Why START is not allowed right now, or null if it is. */
   startBlockedReason: string | null;
+  /** Simulated candidates emitted so far by the latest mission (public fields only). */
+  candidates: PublicCandidate[];
 }
 
 export type MissionCommand =

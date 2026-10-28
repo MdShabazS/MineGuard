@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { MAX_MANUAL_WAYPOINTS, type MissionPlan, type MissionTelemetry, type PlaybackSpeed } from '../../../shared/mission';
-import { FOOTPRINT_PROFILES, FOOTPRINT_RADIUS, maxGapFreeSpacing, type FootprintProfile, type SensorMode } from '../../../shared/sensor';
+import { FOOTPRINT_PROFILES, FOOTPRINT_RADIUS, maxGapFreeSpacing, type FootprintProfile, type PublicCandidate, type SensorMode } from '../../../shared/sensor';
 
 export const btn = 'rounded-lg px-3 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-40';
 export const btnBlue = `${btn} bg-sky-600 text-white hover:bg-sky-500`;
@@ -162,8 +162,8 @@ export function SensorConfig({
         options={FOOTPRINT_PROFILES.map((p) => ({ value: p, label: `${p[0]}${p.slice(1).toLowerCase()} · ${FOOTPRINT_RADIUS[p]}` }))}
       />
       <p className="text-[11px] text-slate-500">
-        {mode === 'BASIC' ? 'Basic: every virtual hazard inside the swept footprint will be mapped.' : 'Advanced: seeded synthetic misses and decoy false alarms.'} Sensing runs in MG-008. Fictional
-        simulator settings, not real sensor capability.
+        {mode === 'BASIC' ? 'Basic: every virtual hazard inside the swept footprint is mapped once.' : 'Advanced: seeded synthetic misses and decoy false alarms.'} Fictional simulator settings, not real
+        sensor capability.
       </p>
     </div>
   );
@@ -208,8 +208,93 @@ export function Telemetry({ t, plan, connected }: { t: MissionTelemetry | null; 
       {row('Progress', t ? `${pct.toFixed(1)}%  (${t.routeDistanceCompleted.toFixed(1)} / ${t.routeLength.toFixed(1)})` : '—', 'tel-progress')}
       {row('Simulation time', t ? fmtTime(t.simTimeSeconds) : '—', 'tel-time')}
       {row('Playback', t ? `${t.playbackSpeed}×` : '—', 'tel-speed')}
+      {row(
+        'Estimated virtual coverage',
+        t?.coverage ? `${t.coverage.sweptArea.toLocaleString()} u²${t.coverage.gridCoveragePercent !== null ? ` · ${t.coverage.gridCoveragePercent.toFixed(1)}% of grid` : ''}` : '—',
+        'tel-coverage',
+      )}
       {row('Connection', <span className={connected ? 'text-emerald-300' : 'text-rose-300'}>{connected ? 'live' : 'reconnecting…'}</span>, 'tel-conn')}
       {t?.pausedByRestart && <p className="mt-1 text-xs text-amber-300">The server restarted during flight; the mission was paused at its last saved position. Resume to continue.</p>}
+    </div>
+  );
+}
+
+export function Findings({
+  candidates,
+  selectedId,
+  onSelect,
+  onReview,
+  hasMission,
+}: {
+  candidates: PublicCandidate[];
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+  onReview: (id: string, review: 'NEW' | 'REVIEWED') => void;
+  hasMission: boolean;
+}) {
+  return (
+    <div className="space-y-2">
+      {candidates.length === 0 ? (
+        <p data-testid="no-candidates" className="text-sm text-slate-400">
+          {hasMission ? 'No candidates yet.' : 'Start a mission: simulated candidates appear here when the virtual footprint scans them.'}
+        </p>
+      ) : (
+        <table data-testid="candidate-list" className="w-full text-left text-sm">
+          <thead className="text-xs text-slate-500">
+            <tr>
+              <th className="pb-1 font-normal">#</th>
+              <th className="pb-1 font-normal">X / Z</th>
+              <th className="pb-1 font-normal">Sim time</th>
+              <th className="pb-1 font-normal">Sensor</th>
+              <th className="pb-1 font-normal">Review</th>
+            </tr>
+          </thead>
+          <tbody>
+            {candidates.map((c) => (
+              <tr
+                key={c.candidateId}
+                data-testid="candidate-row"
+                data-id={c.candidateId}
+                data-x={c.x}
+                data-z={c.z}
+                onClick={() => onSelect(c.candidateId)}
+                className={`cursor-pointer border-t border-white/5 ${c.candidateId === selectedId ? 'bg-yellow-400/10' : 'hover:bg-white/5'}`}
+              >
+                <td className="py-1.5 font-semibold text-rose-300">C{c.number}</td>
+                <td className="font-mono">
+                  {c.x.toFixed(1)} / {c.z.toFixed(1)}
+                </td>
+                <td className="font-mono">{c.simTimeSeconds.toFixed(1)} s</td>
+                <td className="text-xs text-slate-400">
+                  {c.sensorMode.toLowerCase()} · {c.footprintProfile.toLowerCase()}
+                </td>
+                <td>
+                  <button
+                    data-testid={`review-${c.number}`}
+                    className={`rounded px-1.5 py-0.5 text-[11px] ${c.review === 'REVIEWED' ? 'bg-emerald-600/30 text-emerald-200' : 'bg-white/10 text-slate-300'}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onReview(c.candidateId, c.review === 'REVIEWED' ? 'NEW' : 'REVIEWED');
+                    }}
+                  >
+                    {c.review === 'REVIEWED' ? 'Reviewed' : 'Mark reviewed'}
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      {selectedId && candidates.some((c) => c.candidateId === selectedId) && (
+        <p data-testid="candidate-detail" className="rounded bg-black/20 px-2 py-1.5 text-xs text-slate-300">
+          Simulated candidate detected at the location shown. It is a virtual observation from the simulated sensor, not a confirmed mine, and its type is not known until the post-mission
+          reveal.
+        </p>
+      )}
+      <p className="text-[11px] text-slate-500">
+        Candidates are synthetic. Some may come from fictional &quot;buried&quot; objects (a game rule, not subsurface sensing) or, in Advanced mode, from harmless decoys. The swept area is
+        where the fictional sensor was applied, not cleared or safe ground.
+      </p>
     </div>
   );
 }
