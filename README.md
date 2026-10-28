@@ -1,6 +1,6 @@
 # MineGuard V0.1 — Red Team / Blue Team Digital Twin
 
-**Status:** MG-001 app scaffold and MG-002 shared 3D world built and tested (see tasks/evidence/); rooms, placement, flight and detection NOT STARTED. **Deadline:** 24-hour prototype.
+**Status:** MG-001 scaffold, MG-002 shared 3D world and MG-004 rooms / private Red scenario editing built and tested (see tasks/evidence/); mission flight, sensing and reports NOT STARTED. **Deadline:** 24-hour prototype.
 **Authoritative source of truth:** This GitHub repository. No task is done based on a chat message or an unpushed local workspace.
 
 ## Goal
@@ -37,7 +37,7 @@ This is an educational simulator, NOT operational landmine detection, actual bur
 - .github/workflows/task-gate.yml — GitHub Actions validation.
 
 ## Run locally
-Requires Node.js 20+ (tested on Node 24.13.0, Windows 11).
+Requires Node.js 22.13+ (uses built-in `node:sqlite`; tested on Node 24.13.0, Windows 11). Room data is stored in `data/mineguard.sqlite` (gitignored; set `MINEGUARD_DB` to change it, delete the file to reset all rooms).
 
 ```bash
 npm install
@@ -49,13 +49,17 @@ npm run typecheck  # TypeScript checks for client and server
 npm run test:e2e   # browser test: Red + Blue in headless Edge (needs "npm run build"; MINEGUARD_E2E_BROWSER=chrome to use Chrome)
 ```
 
-Routes: `/` home, `/red` Red Team (attacker) portal, `/blue` Blue Team (defence) portal, `/api/health` server status.
+Routes: `/` home, `/red` Red Team portal (Create Room, or resume via the private `/red#room=CODE&key=...` link), `/blue` and `/blue/CODE` Blue Team portal, `/api/health`, `/api/world`, `/api/rooms/*` (see docs/API_CONTRACT.md).
 
 ## Code layout
 - `client/` — Vite + React + TypeScript + Tailwind; `src/pages/` holds Home, AttackerPortal, DefencePortal.
 - `server/` — Express + Socket.IO (`src/app.ts` builds the server, `src/index.ts` starts it); `test/` holds smoke tests (node:test via tsx).
 - `shared/protocol.ts` — types and event names shared by client and server.
 - `shared/world.ts` — the one shared world and X/Z coordinate system (see docs/ARCHITECTURE.md).
+- `shared/scenario.ts` — scenario objects, categories, coordinate validation, error codes, edit rules.
+- `server/src/rooms/` — SQLite room store, attacker-only HTTP routes, role-separated Socket.IO channels.
+- `client/src/red/`, `client/src/world/ObjectMarkers.tsx` — Red portal panels and Red-only 3D markers.
+- `tests/fixtures/` — synthetic sample scenarios (no real data, no tokens).
 - `client/src/world/` — React Three Fiber scene: terrain, roads, trees, landmarks, bounds, picking.
 - `tests/e2e/` — browser end-to-end tests (playwright-core with the installed Edge/Chrome).
 

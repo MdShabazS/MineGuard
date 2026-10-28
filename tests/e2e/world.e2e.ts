@@ -19,7 +19,7 @@ const world = createWorldDefinition();
 
 assert.ok(fs.existsSync(path.join(clientDist, 'index.html')), 'run "npm run build" first');
 
-const { httpServer, io } = createMineGuardServer();
+const { httpServer, io } = createMineGuardServer({ dbPath: ':memory:' });
 let baseUrl = '';
 let browser: Browser;
 

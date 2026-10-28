@@ -13,6 +13,7 @@ createRoot(document.getElementById('root')!).render(
         <Route path="/" element={<Home />} />
         <Route path="/red" element={<AttackerPortal />} />
         <Route path="/blue" element={<DefencePortal />} />
+        <Route path="/blue/:code" element={<DefencePortal />} />
         <Route path="*" element={<Home />} />
       </Routes>
     </BrowserRouter>

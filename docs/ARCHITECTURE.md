@@ -16,6 +16,12 @@ Defined once in `shared/world.ts`; the server builds it and serves it at `GET /a
 - Terrain click picks a world X/Z; a pointer drag over 4 px is a camera orbit, not a click.
 - `/api/world` is public and contains no scenario/hazard data. Hazards will never be added to it.
 
+## Rooms, roles and persistence (implemented, MG-004)
+- Runtime state: SQLite via the built-in `node:sqlite` module (Node >= 22.13; it prints an "experimental" warning). Default file is `data/mineguard.sqlite` (gitignored); override with the `MINEGUARD_DB` env var. Tables: `rooms` (code, SHA-256 of attacker token, mode, state, revision), `objects` (soft-deleted via `deleted_at`), `audit` (monotonic revision, server time, mission sim time, private before/after JSON).
+- Every successful mutation runs in one transaction: change the object, bump `rooms.revision`, append audit. Object `revision` = room revision at its last change, used for optimistic concurrency (`baseRevision`).
+- Role isolation is server-side. Blue HTTP/socket responses are built only from `publicSnapshot()`, which has no object fields; Blue never holds hidden data to hide. Red markers render only from the attacker snapshot.
+- Limit: 100 active objects per room (`MAX_ACTIVE_OBJECTS`), rejected with `OBJECT_LIMIT`.
+
 ## Data flow
 Red UI -> attacker-authenticated placement commands -> server private scenario
 Blue UI -> mission planning/controls -> server-authoritative route & virtual drone

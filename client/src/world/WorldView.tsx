@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Canvas, type ThreeEvent } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import { isInBounds, roundCoord, sceneToWorld, worldToScene, type Vec2, type WorldDefinition } from '../../../shared/world';
@@ -8,7 +8,7 @@ import { useWorld } from './useWorld';
 
 // A pointer that travels more than this many pixels between down and up is a
 // camera drag, not a terrain click (so orbiting never places anything later).
-const CLICK_MAX_DRAG_PX = 4;
+export const CLICK_MAX_DRAG_PX = 4;
 
 function toWorldPoint(world: WorldDefinition, e: ThreeEvent<PointerEvent | MouseEvent>): Vec2 | null {
   const [x, z] = sceneToWorld(world, e.point.x, e.point.z);
@@ -25,11 +25,12 @@ function ClickMarker({ world, at }: { world: WorldDefinition; at: Vec2 }) {
   );
 }
 
-function Scene({ world, onHover, onPick, picked }: {
+function Scene({ world, onHover, onPick, picked, children }: {
   world: WorldDefinition;
   onHover: (p: Vec2 | null) => void;
   onPick: (p: Vec2) => void;
   picked: Vec2 | null;
+  children?: ReactNode;
 }) {
   return (
     <>
@@ -52,6 +53,7 @@ function Scene({ world, onHover, onPick, picked }: {
       <Landmarks world={world} />
       <Bounds world={world} />
       {picked && <ClickMarker world={world} at={picked} />}
+      {children}
       <OrbitControls makeDefault enableDamping target={[0, 0, 0]} minDistance={40} maxDistance={320} maxPolarAngle={1.35} />
     </>
   );
@@ -59,7 +61,17 @@ function Scene({ world, onHover, onPick, picked }: {
 
 const fmt = (p: Vec2 | null) => (p ? `X ${p[0].toFixed(1)} · Z ${p[1].toFixed(1)}` : '—');
 
-export default function WorldView() {
+interface WorldViewProps {
+  /** Called with the rounded world X/Z after a genuine terrain click (never after an orbit drag). */
+  onPick?: (p: Vec2) => void;
+  /** Extra 3D content (e.g. Red-only object markers), rendered inside the canvas. */
+  renderScene?: (world: WorldDefinition) => ReactNode;
+  /** DOM overlay on top of the canvas (e.g. a placement-mode banner). */
+  overlay?: ReactNode;
+  crosshair?: boolean;
+}
+
+export default function WorldView({ onPick, renderScene, overlay, crosshair }: WorldViewProps = {}) {
   const state = useWorld();
   const [hover, setHover] = useState<Vec2 | null>(null);
   const [picked, setPicked] = useState<Vec2 | null>(null);
@@ -83,7 +95,7 @@ export default function WorldView() {
       data-picked={picked ? `${picked[0]},${picked[1]}` : ''}
       className="overflow-hidden rounded-xl border border-white/10"
     >
-      <div className="relative h-[60vh] min-h-[360px]">
+      <div className={`relative h-[60vh] min-h-[360px] ${crosshair ? 'cursor-crosshair' : ''}`}>
         <Canvas
           shadows
           dpr={[1, 2]}
@@ -91,11 +103,22 @@ export default function WorldView() {
           onCreated={() => setRendered(true)}
           fallback={<div className="p-6 text-sm text-rose-300">WebGL is not available in this browser.</div>}
         >
-          <Scene world={world} onHover={setHover} onPick={setPicked} picked={picked} />
+          <Scene
+            world={world}
+            onHover={setHover}
+            onPick={(p) => {
+              setPicked(p);
+              onPick?.(p);
+            }}
+            picked={picked}
+          >
+            {renderScene?.(world)}
+          </Scene>
         </Canvas>
         <div className="pointer-events-none absolute left-3 top-3 rounded bg-black/60 px-2 py-1 text-[11px] font-semibold tracking-widest text-teal-200">
           VIRTUAL WORLD · {world.terrainId}
         </div>
+        {overlay}
       </div>
       <div className="grid gap-2 bg-white/5 px-4 py-3 text-sm sm:grid-cols-3">
         <div>

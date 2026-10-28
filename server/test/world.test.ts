@@ -63,7 +63,7 @@ test('terrain height is finite, smooth and peaks on hills', () => {
   assert.ok(Math.abs(terrainHeight(world, 50, 50) - terrainHeight(world, 50.5, 50)) < 0.5);
 });
 
-const { httpServer, io } = createMineGuardServer();
+const { httpServer, io } = createMineGuardServer({ dbPath: ':memory:' });
 let baseUrl = '';
 before(async () => {
   await new Promise<void>((resolve) => httpServer.listen(0, '127.0.0.1', resolve));

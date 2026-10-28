@@ -1,0 +1,13 @@
+{
+  "_comment": "Synthetic ALPHA fixture from docs/specs/SCENARIO_CONTRACT.md section 8. Fictional virtual X/Z units in world mg-field-01; not real hazards or GPS. Labels are fixture names, not server IDs.",
+  "name": "ALPHA",
+  "terrainId": "mg-field-01",
+  "mode": "CHALLENGE",
+  "objects": [
+    { "label": "H-01", "kind": "HAZARD", "subtype": "SURFACE", "x": 30.0, "z": 40.0 },
+    { "label": "H-02", "kind": "HAZARD", "subtype": "OBSCURED", "x": 75.0, "z": 80.0 },
+    { "label": "H-03", "kind": "HAZARD", "subtype": "BURIED", "x": 120.0, "z": 105.0 },
+    { "label": "H-04", "kind": "HAZARD", "subtype": "SURFACE", "x": 170.0, "z": 160.0 },
+    { "label": "D-01", "kind": "DECOY", "subtype": "ROCK", "x": 60.0, "z": 130.0 }
+  ]
+}

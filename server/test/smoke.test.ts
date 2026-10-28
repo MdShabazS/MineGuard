@@ -9,7 +9,7 @@ import { clientDist, createMineGuardServer } from '../src/app.js';
 
 type ClientSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
-const { httpServer, io } = createMineGuardServer();
+const { httpServer, io } = createMineGuardServer({ dbPath: ':memory:' });
 let baseUrl = '';
 
 before(async () => {

@@ -5,7 +5,7 @@
   "type": "module",
   "description": "MineGuard V0.1 Red/Blue digital twin (educational simulator, not real mine detection)",
   "engines": {
-    "node": ">=20"
+    "node": ">=22.13"
   },
   "scripts": {
     "dev": "concurrently -n server,client -c red,blue \"npm:dev:server\" \"npm:dev:client\"",
