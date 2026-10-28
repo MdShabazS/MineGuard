@@ -266,6 +266,7 @@ export default function DefencePortal() {
               selectedId={selectedCandidate}
               onSelect={setSelectedCandidate}
               hasMission={!!mission?.mission}
+              reviewDisabled={!!(revealedResult && revealedResult.missionId === telemetry?.missionId)}
               onReview={(id, review) => api && run(async () => (await api.review(id, review), { snapshot: await api.get() }))}
             />
           </Card>
