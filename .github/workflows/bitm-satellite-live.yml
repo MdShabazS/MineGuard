@@ -1,0 +1,33 @@
+name: bitm-satellite-live-provider
+on:
+  pull_request:
+    paths:
+      - 'shared/geographic.ts'
+      - 'client/src/world/**'
+      - 'tests/live/**'
+      - '.github/workflows/bitm-satellite-live.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: bitm-provider-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify-live-photo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npx --yes playwright@1.64.1 install --with-deps chromium
+      - name: Open actual Esri imagery in browser and verify visible photo pixels
+        env:
+          MINEGUARD_E2E_BROWSER: chromium
+        run: npx tsx --test tests/live/bitm-provider.test.ts

@@ -71,7 +71,7 @@ Routes: `/` home, `/red` Red Team portal (Create Room, or resume via the private
 
 ## BITM Ballari real satellite view (optional)
 
-In either Red or Blue 3D world, choose **BITM Satellite · 5 km** under **Map view**. The preset centres on BITM at approximately **15.168082°N, 76.850186°E**, showing a live Esri World Imagery image across a 10 × 10 km square with a yellow **5 km radius** boundary. The **Original 3D** button restores the original virtual world. **Import licensed map** lets each browser display a locally selected north-up 10 km-square JPEG/PNG/WebP offline, without uploading it. [Detailed setup, coordinate registration, attribution and restrictions](docs/BITM_SATELLITE_5KM.md).
+In either Red or Blue 3D world, choose **BITM Satellite · 5 km** under **Map view**. The preset centres on BITM at approximately **15.168082°N, 76.850186°E**, showing a live Esri World Imagery image across a 10 × 10 km square with an optional **5 km radius** boundary (hidden until you select **Show 5 km outline**). The **Original 3D** button restores the original virtual world. **Import licensed map** lets each browser display a locally selected north-up 10 km-square JPEG/PNG/WebP offline, without uploading it. [Detailed setup, coordinate registration, attribution and restrictions](docs/BITM_SATELLITE_5KM.md).
 
 **Important:** This is geographic imagery draped over *synthetic* terrain heights. The actual mission engine, Red privacy, 200 × 200 virtual coordinates, simulated sensor and detection metrics remain unchanged. Imagery display is not real elevation, underground sensing, or evidence that real ground is clear. Live Esri imagery requires internet and provider availability; no map tile scraping/caching is performed.
 

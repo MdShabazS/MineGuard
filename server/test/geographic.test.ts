@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
-  BITM_AREA, bitmBounds, bitmSatelliteImageUrl, geographicToVirtual,
+  BITM_AREA, BITM_TILE_ZOOM, BITM_TEXTURE_SIZE, bitmBounds, bitmSatelliteTiles, esriWorldImageryTileUrl, geographicToVirtual,
   METERS_PER_SIMULATED_UNIT, virtualToGeographic, withinBitmRadius,
 } from '../../shared/geographic.js';
 import { createWorldDefinition, isInBounds, worldToScene } from '../../shared/world.js';
@@ -40,19 +40,27 @@ test('BITM 5km square image is a north-up WGS84 bounding rectangle', () => {
   }
 });
 
-test('satellite link uses only the authorized static imagery endpoint and bounded image size', () => {
-  const url = new URL(bitmSatelliteImageUrl());
+test('BITM satellite loads real MapServer cached tiles with north-up Web Mercator alignment', () => {
+  const tiles = bitmSatelliteTiles();
+  assert.ok(tiles.length >= 9 && tiles.length <= 49, 'Limited number of public display tiles');
+  assert.ok(tiles.every((t) => t.zoom === BITM_TILE_ZOOM));
+  assert.ok(tiles.every((t) => Number.isFinite(t.drawX) && Number.isFinite(t.drawY)));
+  assert.ok(tiles.every((t) => t.drawWidth > 0 && t.drawHeight > 0));
+  assert.ok(tiles.some((t) => t.drawX < 0), 'Edge tiles crop to the square imagery extent');
+  assert.ok(tiles.some((t) => t.drawY < 0), 'North image tiles crop at the north boundary');
+  const url = new URL(esriWorldImageryTileUrl(tiles[0]));
   assert.equal(url.protocol, 'https:');
-  assert.equal(url.hostname, 'server.arcgisonline.com');
-  assert.equal(url.pathname, '/ArcGIS/rest/services/World_Imagery/MapServer/export');
-  assert.equal(url.searchParams.get('size'), '2048,2048');
-  assert.equal(url.searchParams.get('bboxSR'), '4326');
-  assert.equal(url.searchParams.get('imageSR'), '4326');
-  assert.equal(url.searchParams.get('f'), 'image');
-  assert.deepEqual(url.searchParams.get('bbox')?.split(',').map(Number).length, 4);
-  assert.throws(() => bitmSatelliteImageUrl(99999));
-  assert.throws(() => bitmSatelliteImageUrl(0));
-  assert.throws(() => bitmSatelliteImageUrl(1024.2));
+  assert.equal(url.hostname, 'services.arcgisonline.com');
+  assert.match(url.pathname, /^\/ArcGIS\/rest\/services\/World_Imagery\/MapServer\/tile\/14\/\d+\/\d+$/);
+  assert.ok(!url.pathname.endsWith('/export'), 'Never depend on an Esri map export blank image');
+  const xSort = [...new Set(tiles.map((t) => t.x))].sort((a,b)=>a-b);
+  const ySort = [...new Set(tiles.map((t) => t.y))].sort((a,b)=>a-b);
+  assert.equal(tiles.length, xSort.length * ySort.length);
+  assert.equal(tiles[0].y, ySort[0]);
+  assert.equal(tiles[0].x, xSort[0]);
+  assert.ok(tiles[tiles.length-1].drawY + tiles[tiles.length-1].drawHeight >= BITM_TEXTURE_SIZE);
+  assert.throws(() => esriWorldImageryTileUrl({ zoom: 19, x: -1, y: 2 }));
+  assert.throws(() => bitmSatelliteTiles(99999));
 });
 
 test('satellite selection does not mutate the fictional world or its terrain checksum', () => {
