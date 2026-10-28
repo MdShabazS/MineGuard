@@ -18,7 +18,7 @@ async function withServer(
     await run(s, base, (ms) => { now += ms; s.engine.tickAll(); });
   } finally {
     s.io.close();
-    await new Promise<void>((resolve) => s.httpServer.close(resolve));
+    await new Promise<void>((resolve, reject) => s.httpServer.close((err) => err ? reject(err) : resolve()));
   }
 }
 
@@ -43,10 +43,10 @@ function setup(s: ReturnType<typeof createMineGuardServer>, mode: 'CHALLENGE' | 
 function begin(s: ReturnType<typeof createMineGuardServer>, room: ReturnType<typeof setup>, mode: 'BASIC' | 'ADVANCED' = 'BASIC') {
   const p = s.engine.setPlan(room, { routeKind: 'MANUAL', waypoints: [{ x: 20, z: 100 }, { x: 180, z: 100 }], sensorMode: mode, footprintProfile: 'STANDARD' });
   assert.equal(p.ok, true);
-  if (!p.ok) throw Error(p.message);
+  if (!p.ok) throw Error('Plan setup failed');
   const started = s.engine.command(room, { action: 'START', planId: p.value.id, planRevision: p.value.planRevision, playbackSpeed: 4 });
   assert.equal(started.ok, true);
-  if (!started.ok) throw Error(started.message);
+  if (!started.ok) throw Error('Mission start failed');
   return started.value.mission!.missionId;
 }
 function finish(s: ReturnType<typeof createMineGuardServer>, advance: (ms: number) => void) {
