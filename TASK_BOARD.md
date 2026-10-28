@@ -15,7 +15,7 @@
 | MG-008 | Rahil | BUILD | MG-007 | Sensor simulation, candidate map, live edits and tracking |
 | MG-009 | Shabaz | DOC | MG-008 | Report and faculty demonstration template |
 | MG-010 | Shabaz (ChatGPT-assisted, CI-tested) | BUILD | MG-009 | Comparison, scoring and report export |
-| MG-011 | Rahil | BUILD | MG-010 | Online and local two-device access testing |
+| MG-011 | Shabaz (ChatGPT-assisted) | BUILD | MG-010 | LAN/online access automation and documented real two-device verification |
 | MG-012 | Shabaz | DOC | MG-011 | Final explanation and presentation Q&A |
 | MG-013 | Rahil | BUILD | MG-012 | Full release QA, runbook and stabilization |
 
@@ -31,7 +31,7 @@
 - **MG-008 (Rahil)**: Sensor simulation, candidate map, live edits and tracking. Evidence: tasks/evidence/MG-008.md. Rahil tests and records actual PASS only if executed.
 - **MG-009 (Shabaz)**: Report and faculty demonstration template. Evidence: docs/specs/REPORT_PRESENTATION.md. Shabaz writes and commits specification; no software test claim.
 - **MG-010 (Shabaz / ChatGPT-assisted)**: Scoring, explicit post-finish reveal and printable HTML/Save as PDF. Evidence: tasks/evidence/MG-010.md; Tester: GitHub Actions CI, actual 80 backend and 6 browser PASS. The previous Rahil assignment was explicitly handed over. Physical device QA stays MG-011/Rahil.
-- **MG-011 (Rahil)**: Online and local two-device access testing. Evidence: tasks/evidence/MG-011.md. Rahil tests and records actual PASS only if executed.
+- **MG-011 (Shabaz / ChatGPT-assisted)**: LAN network bind/health/Socket.IO automation, manual physical-device runbook, and verification of both LAN and internet with two real devices. Evidence when genuinely completed: tasks/evidence/MG-011.md. Actual tester may be Rahil or Shabaz, supported by observed physical evidence. **CI emulation alone is insufficient for DONE.**
 - **MG-012 (Shabaz)**: Final explanation and presentation Q&A. Evidence: docs/specs/FACULTY_DEMO_NOTES.md. Shabaz writes and commits specification; no software test claim.
 - **MG-013 (Rahil)**: Full release QA, runbook and stabilization. Evidence: tasks/evidence/MG-013.md. Rahil tests and records actual PASS only if executed.
 
