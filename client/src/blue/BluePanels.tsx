@@ -225,12 +225,14 @@ export function Findings({
   onSelect,
   onReview,
   hasMission,
+  reviewDisabled = false,
 }: {
   candidates: PublicCandidate[];
   selectedId: string | null;
   onSelect: (id: string) => void;
   onReview: (id: string, review: 'NEW' | 'REVIEWED') => void;
   hasMission: boolean;
+  reviewDisabled?: boolean;
 }) {
   return (
     <div className="space-y-2">
@@ -271,6 +273,8 @@ export function Findings({
                 <td>
                   <button
                     data-testid={`review-${c.number}`}
+                    disabled={reviewDisabled}
+                    title={reviewDisabled ? 'Review is frozen in the revealed report' : 'Toggle review state'}
                     className={`rounded px-1.5 py-0.5 text-[11px] ${c.review === 'REVIEWED' ? 'bg-emerald-600/30 text-emerald-200' : 'bg-white/10 text-slate-300'}`}
                     onClick={(e) => {
                       e.stopPropagation();

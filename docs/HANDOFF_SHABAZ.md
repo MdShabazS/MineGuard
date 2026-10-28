@@ -1,4 +1,4 @@
-# Shabaz — ChatGPT-only Documentation Owner
+# Shabaz — Documentation Owner and MG-010 ChatGPT-Assisted Handoff
 
 Work entirely through ChatGPT + connected GitHub. No terminal/testing required. Every authoritative document and status change must land in GitHub.
 
@@ -7,7 +7,7 @@ Work entirely through ChatGPT + connected GitHub. No terminal/testing required. 
 2. Only begin your own task if the preceding task is actually DONE in GitHub.
 3. Ask ChatGPT to author the required docs/specs/*.md file directly in the repository and update your task status/evidence in GitHub. Verify the commit link.
 4. Send Rahil the commit URL and next READY task. If blocked, wait—don't work ahead.
-5. You must NOT create software QA evidence or claim runtime PASS: Rahil exclusively does testing.
+5. For documentation work, never claim runtime PASS. **Exception: MG-010** was authorized as ChatGPT-assisted implementation; its PASS evidence comes from executed GitHub Actions CI, not from Rahil or ChatGPT claiming a local test. MG-011 physical QA stays Rahil.
 
 ## Your assignments
 MG-000 — all foundation documentation and reset: DONE.

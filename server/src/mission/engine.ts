@@ -81,6 +81,10 @@ export class MissionEngine {
   private latest = new Map<string, ActiveMission>();
   private timer: NodeJS.Timeout | null = null;
   sweepHook: SweepHook = () => {};
+  /** MG-010: capture authoritative scenario truth when a flight begins. */
+  onStarted: (room: RoomRecord, mission: ActiveMission) => void = () => {};
+  /** MG-010: freeze the final historical audit boundary. */
+  onFinished: (room: RoomRecord, mission: ActiveMission) => void = () => {};
   /** Provided by the sensor (MG-008). */
   coverageOf: (m: ActiveMission) => CoverageEstimate | null = () => null;
   candidatesOf: (missionId: string) => PublicCandidate[] = () => [];
@@ -347,6 +351,7 @@ export class MissionEngine {
       .run(m.id, room.id, JSON.stringify(plan), m.status, m.speed, m.seed, now, now);
     this.latest.set(room.id, m);
     this.store.setState(room, 'RUNNING', 0);
+    this.onStarted(room, m);
     return this.changed(room);
   }
 
@@ -361,6 +366,7 @@ export class MissionEngine {
     m.status = 'FINISHED';
     m.endReason = reason;
     this.store.setState(room, 'FINISHED', m.simTime);
+    this.onFinished(room, m);
   }
 
   /** Advance one RUNNING mission to the current real time. */

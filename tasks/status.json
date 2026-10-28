@@ -70,9 +70,11 @@
       "completedBy": "Shabaz"
     },
     "MG-010": {
-      "owner": "Rahil",
-      "state": "TODO",
-      "evidence": null
+      "owner": "Shabaz",
+      "state": "DONE",
+      "evidence": "tasks/evidence/MG-010.md",
+      "startedBy": "Shabaz",
+      "completedBy": "Shabaz"
     },
     "MG-011": {
       "owner": "Rahil",

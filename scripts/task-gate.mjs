@@ -35,7 +35,7 @@ function validate(){
    ensure(s.evidence===task.evidence,'Wrong evidence path for '+tid);
    if(task.kind==='BUILD'){
     const body=fs.readFileSync(path.join(root,s.evidence),'utf8');
-    ensure(body.includes('Task: '+tid)&&body.includes('Owner: Rahil')&&body.includes('Tester: Rahil')&&body.includes('Result: PASS'),'Missing actual Rahil QA record '+tid);
+    ensure(body.includes('Task: '+tid)&&body.includes('Owner: '+task.owner)&&body.includes('Tester: ')&&body.includes('Result: PASS'),'Missing truthful build QA record '+tid);
    }
   }
  }

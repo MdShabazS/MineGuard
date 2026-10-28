@@ -14,7 +14,7 @@
 | MG-007 | Rahil | BUILD | MG-006 | Grid/manual flight, drone animation and controls |
 | MG-008 | Rahil | BUILD | MG-007 | Sensor simulation, candidate map, live edits and tracking |
 | MG-009 | Shabaz | DOC | MG-008 | Report and faculty demonstration template |
-| MG-010 | Rahil | BUILD | MG-009 | Comparison, scoring and report export |
+| MG-010 | Shabaz (ChatGPT-assisted, CI-tested) | BUILD | MG-009 | Comparison, scoring and report export |
 | MG-011 | Rahil | BUILD | MG-010 | Online and local two-device access testing |
 | MG-012 | Shabaz | DOC | MG-011 | Final explanation and presentation Q&A |
 | MG-013 | Rahil | BUILD | MG-012 | Full release QA, runbook and stabilization |
@@ -30,7 +30,7 @@
 - **MG-007 (Rahil)**: Grid/manual flight, drone animation and controls. Evidence: tasks/evidence/MG-007.md. Rahil tests and records actual PASS only if executed.
 - **MG-008 (Rahil)**: Sensor simulation, candidate map, live edits and tracking. Evidence: tasks/evidence/MG-008.md. Rahil tests and records actual PASS only if executed.
 - **MG-009 (Shabaz)**: Report and faculty demonstration template. Evidence: docs/specs/REPORT_PRESENTATION.md. Shabaz writes and commits specification; no software test claim.
-- **MG-010 (Rahil)**: Comparison, scoring and report export. Evidence: tasks/evidence/MG-010.md. Rahil tests and records actual PASS only if executed.
+- **MG-010 (Shabaz / ChatGPT-assisted)**: Scoring, explicit post-finish reveal and printable HTML/Save as PDF. Evidence: tasks/evidence/MG-010.md; Tester: GitHub Actions CI, actual 80 backend and 6 browser PASS. The previous Rahil assignment was explicitly handed over. Physical device QA stays MG-011/Rahil.
 - **MG-011 (Rahil)**: Online and local two-device access testing. Evidence: tasks/evidence/MG-011.md. Rahil tests and records actual PASS only if executed.
 - **MG-012 (Shabaz)**: Final explanation and presentation Q&A. Evidence: docs/specs/FACULTY_DEMO_NOTES.md. Shabaz writes and commits specification; no software test claim.
 - **MG-013 (Rahil)**: Full release QA, runbook and stabilization. Evidence: tasks/evidence/MG-013.md. Rahil tests and records actual PASS only if executed.
@@ -40,4 +40,4 @@ On an up-to-date repo checkout: node scripts/task-gate.mjs validate ; node scrip
 
 If MG-003 is not DONE: BLOCKED: MG-004 requires MG-003 (Shabaz). Ask Shabaz to complete and commit MG-003 before beginning MG-004.
 
-MG-000 baseline is DONE as the reset commit. MG-001 is next; MG-002 through MG-013 are TODO. Never work ahead. All task status and evidence must be pushed to GitHub.
+The current task status is in tasks/status.json. After MG-010 is verified and merged, MG-011 is the next READY task for Rahil. Do not work ahead. All status and evidence must be pushed to GitHub.

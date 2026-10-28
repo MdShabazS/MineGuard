@@ -5,6 +5,7 @@ import { useFrame } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import { BASE_SPEED, cumulative, poseAt, type GridSpec, type MissionPoint, type MissionTelemetry } from '../../../shared/mission';
 import type { PublicCandidate } from '../../../shared/sensor';
+import type { RevealedObjectRow } from '../../../shared/results';
 import { terrainHeight, worldToScene, type WorldDefinition } from '../../../shared/world';
 import { CLICK_MAX_DRAG_PX } from '../world/WorldView';
 import type { FollowTarget } from '../world/CameraRig';
@@ -374,6 +375,31 @@ function CandidatePins({ world, candidates, selectedId, onSelect }: { world: Wor
   );
 }
 
+/** Historical fictional truth is added to Blue ONLY after server-authorized reveal. */
+function RevealedPins({ world, objects }: { world: WorldDefinition; objects: RevealedObjectRow[] }) {
+  return (
+    <group name="post-reveal-fictional-truth">
+      {objects.map((o) => {
+        const [sx, sy, sz] = worldToScene(world, o.x, o.z);
+        const hazard = o.kind === 'HAZARD';
+        return (
+          <group key={o.reportObjectLabel} position={[sx, sy + 1.4, sz]}>
+            <mesh raycast={() => null}>
+              {hazard ? <boxGeometry args={[2.6, 2.6, 2.6]} /> : <sphereGeometry args={[1.4, 12, 9]} />}
+              <meshBasicMaterial color={hazard ? '#fbbf24' : '#f1f5f9'} wireframe={o.disposition === 'NOT_SCANNED'} />
+            </mesh>
+            <Html position={[0, 4.8, 0]} center className="pointer-events-none select-none">
+              <div className="rounded border border-white/30 bg-black/85 px-1.5 text-[10px] font-bold text-white">
+                {o.reportObjectLabel} · {o.disposition === 'NOT_SCANNED' ? 'NOT SCANNED' : o.kind}
+              </div>
+            </Html>
+          </group>
+        );
+      })}
+    </group>
+  );
+}
+
 interface Props {
   world: WorldDefinition;
   /** Local, not-yet-confirmed preview (dashed). */
@@ -387,11 +413,12 @@ interface Props {
   /** Footprint radius of the flying mission (from shared/sensor.ts). */
   footprintRadius?: number;
   candidates?: PublicCandidate[];
+  revealedTruth?: RevealedObjectRow[];
   selectedCandidate?: string | null;
   onSelectCandidate?: (id: string) => void;
 }
 
-export default function MissionLayer({ world, draft, draftGrid, route, routeGrid, telemetry, follow, footprintRadius = 10, candidates = [], selectedCandidate = null, onSelectCandidate }: Props) {
+export default function MissionLayer({ world, draft, draftGrid, route, routeGrid, telemetry, follow, footprintRadius = 10, candidates = [], revealedTruth = [], selectedCandidate = null, onSelectCandidate }: Props) {
   // With no drone yet, Follow mode looks at the route start.
   if (!telemetry && follow) {
     const start = route?.[0] ?? draft?.[0];
@@ -410,6 +437,7 @@ export default function MissionLayer({ world, draft, draftGrid, route, routeGrid
       {route && !draft && <Waypoints world={world} points={route} label={route.length <= 30} />}
       {route && telemetry && <Drone world={world} points={route} telemetry={telemetry} follow={follow} radius={footprintRadius} />}
       <CandidatePins world={world} candidates={candidates} selectedId={selectedCandidate} onSelect={onSelectCandidate} />
+      {revealedTruth.length > 0 && <RevealedPins world={world} objects={revealedTruth} />}
     </group>
   );
 }

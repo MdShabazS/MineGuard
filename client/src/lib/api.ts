@@ -1,9 +1,10 @@
 import type { MissionCommand, MissionErrorCode, MissionPlan, MissionSnapshot } from '../../../shared/mission';
+import type { FrozenMissionResult, RevealState } from '../../../shared/results';
 import type { ApiError, AttackerRoomSnapshot, CreateRoomResponse, ScenarioObject } from '../../../shared/scenario';
 
 export class ApiFailure extends Error {
   constructor(
-    public code: ApiError['error'] | MissionErrorCode | 'NETWORK',
+    public code: ApiError['error'] | MissionErrorCode | 'NETWORK' | 'REPORT_NOT_READY' | 'MISSION_NOT_FINISHED' | 'REPORT_HISTORY_UNAVAILABLE',
     message: string,
     public current?: ScenarioObject,
   ) {
@@ -55,6 +56,10 @@ export function missionApi(roomCode: string) {
     command: (cmd: MissionCommand) => request<{ snapshot: MissionSnapshot }>('POST', `${base}/command`, cmd),
     review: (candidateId: string, review: 'NEW' | 'REVIEWED') =>
       request<{ candidate: unknown }>('PATCH', `${base}/observations/${encodeURIComponent(candidateId)}/review`, { review }),
+    resultState: (missionId: string) => request<RevealState>('GET', `${base}/${encodeURIComponent(missionId)}/reveal-state`),
+    results: (missionId: string) => request<{ result: FrozenMissionResult }>('GET', `${base}/${encodeURIComponent(missionId)}/results`),
+    reveal: (missionId: string) => request<{ result: FrozenMissionResult }>('POST', `${base}/${encodeURIComponent(missionId)}/reveal`),
+    printUrl: (missionId: string) => `${base}/${encodeURIComponent(missionId)}/report`,
   };
 }
 
