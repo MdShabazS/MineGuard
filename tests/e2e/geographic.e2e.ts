@@ -10,7 +10,10 @@ import { chromium, type Browser, type Page } from 'playwright-core';
 import { clientDist, createMineGuardServer } from '../../server/src/app.js';
 import { BITM_AREA } from '../../shared/geographic.js';
 
-const PNG = Buffer.from(
+// A real, sizeable test PNG rather than the former 1×1 pixel. This is a
+// fixture from the fictional world, NOT a claim that it is satellite imagery.
+const TILE_PNG = fs.readFileSync(path.join(process.cwd(), 'tasks/evidence/screenshots/MG-007-overview.png'));
+const SMALL_PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9WlV5dQAAAAASUVORK5CYII=',
   'base64',
 );
@@ -32,10 +35,9 @@ after(async () => {
 });
 async function open(pathname: string): Promise<Page> {
   const page = await browser.newPage({ viewport: { width: 1240, height: 920 } });
-  await page.route('https://server.arcgisonline.com/**', async (route) => {
-    // Mocked JPEG export endpoint; one tiny PNG is enough for texture-loading UI.
-    assert.match(route.request().url(), /World_Imagery\/MapServer\/export/);
-    await route.fulfill({ status: 200, contentType: 'image/png', headers: { 'access-control-allow-origin': '*' }, body: PNG });
+  await page.route('https://services.arcgisonline.com/**', async (route) => {
+    assert.match(route.request().url(), /World_Imagery\/MapServer\/tile\/14\/\d+\/\d+/);
+    await route.fulfill({ status: 200, contentType: 'image/png', headers: { 'access-control-allow-origin': '*' }, body: TILE_PNG });
   });
   await page.goto(origin + pathname);
   await page.waitForSelector('[data-testid="world-view"][data-rendered="true"]', { timeout: 30000 });
@@ -57,7 +59,14 @@ test('Red and Blue both select the same BITM 5km satellite view while world trut
       assert.match(meta, /5 km radius/);
       assert.match(meta, /illustrative, not real DEM elevation/);
       assert.ok(meta.includes(BITM_AREA.latitude.toFixed(6)) && meta.includes(BITM_AREA.longitude.toFixed(6)));
+      const tileStatus = await page.locator('[data-testid="world-view"]').getAttribute('data-map-tile-status');
+      assert.match(tileStatus ?? '', /^\d+\/\d+ satellite tiles displayed$/);
+      assert.equal(await page.locator('[data-testid="bitm-map-label"]').count(), 0,
+        'No obstructive 5 km circle or label by default');
+      await page.click('[data-testid="toggle-map-boundary"]');
       await page.waitForSelector('[data-testid="bitm-map-label"]', { timeout: 12000 });
+      await page.click('[data-testid="toggle-map-boundary"]');
+      await page.waitForSelector('[data-testid="bitm-map-label"]', { state: 'detached' });
       assert.equal(await page.locator('[data-testid="world-view"]').getAttribute('data-checksum'), before);
     }
     // Public world JSON stays private-object free and bit-for-bit unchanged by view mode.
@@ -75,7 +84,7 @@ test('licensed user image import stays browser-local and original terrain can be
   const page = await open('/blue');
   try {
     await page.locator('[data-testid="import-map-image"]').setInputFiles({
-      name: 'licensed-area.png', mimeType: 'image/png', buffer: PNG,
+      name: 'licensed-area.png', mimeType: 'image/png', buffer: SMALL_PNG,
     });
     await page.waitForSelector('[data-testid="world-view"][data-map-mode="IMPORT"][data-map-available="true"]', { timeout: 15000 });
     assert.match(await page.locator('[data-testid="imported-map-name"]').innerText(), /licensed-area.png/);
