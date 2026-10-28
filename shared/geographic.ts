@@ -69,23 +69,66 @@ export function withinBitmRadius(x: number, z: number): boolean {
     Math.hypot(x - 100, z - 100) <= REAL_WORLD_RADIUS_UNITS + 1e-9;
 }
 
-/** One live, non-cached map image, requested by a visitor who selects Satellite.
- * Do not scrape tiles or save this provider imagery as an offline asset.
- * The optional imported local-file mode is for user-owned/licensed imagery.
+/** Live, official ArcGIS cached World Imagery tiles for visual display.
+ * The old MapServer/export URL decoded but gave no meaningful photo in some
+ * browsers. Use the public tiled basemap layer instead (z/y/x, NOT z/x/y).
+ * No bulk downloader, permanent cache, map export or server proxy.
  */
-export function bitmSatelliteImageUrl(pixelSize = 2048): string {
-  if (!Number.isInteger(pixelSize) || pixelSize < 256 || pixelSize > 2048) {
-    throw Error('Satellite image size must be an integer from 256 through 2048.');
+export const BITM_TILE_ZOOM = 14;
+export const BITM_TILE_SIZE = 256;
+export const BITM_TEXTURE_SIZE = 1536;
+
+export interface SatelliteTile {
+  zoom: number;
+  x: number;
+  y: number;
+  // Location of this tile on the 1536×1536 BITM canvas. Values may be
+  // negative / outside canvas for edge tiles: Canvas2D clips them naturally.
+  drawX: number;
+  drawY: number;
+  drawWidth: number;
+  drawHeight: number;
+}
+
+export function longitudeToTileX(lon: number, zoom: number): number {
+  return ((lon + 180) / 360) * 2 ** zoom;
+}
+export function latitudeToTileY(lat: number, zoom: number): number {
+  const phi = Math.max(-85.05112878, Math.min(85.05112878, lat)) * Math.PI / 180;
+  return ((1 - Math.asinh(Math.tan(phi)) / Math.PI) / 2) * 2 ** zoom;
+}
+export function esriWorldImageryTileUrl(tile: Pick<SatelliteTile, 'zoom' | 'x' | 'y'>): string {
+  const { zoom, x, y } = tile;
+  if (![zoom, x, y].every(Number.isInteger) || zoom < 0 || zoom > 19 ||
+    x < 0 || y < 0 || x >= 2 ** zoom || y >= 2 ** zoom) {
+    throw Error('Invalid public World Imagery tile coordinates.');
+  }
+  return `https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${zoom}/${y}/${x}`;
+}
+export function bitmSatelliteTiles(size = BITM_TEXTURE_SIZE, zoom = BITM_TILE_ZOOM): SatelliteTile[] {
+  if (!Number.isInteger(size) || size < 256 || size > 3072 ||
+    !Number.isInteger(zoom) || zoom < 10 || zoom > 16) {
+    throw Error('Invalid BITM satellite display settings.');
   }
   const b = bitmBounds();
-  const params = new URLSearchParams({
-    bbox: [b.west, b.south, b.east, b.north].map((v) => v.toFixed(8)).join(','),
-    bboxSR: '4326',
-    imageSR: '4326',
-    size: pixelSize + ',' + pixelSize,
-    format: 'jpg',
-    transparent: 'false',
-    f: 'image',
-  });
-  return 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?' + params.toString();
+  const x0 = longitudeToTileX(b.west, zoom);
+  const x1 = longitudeToTileX(b.east, zoom);
+  const y0 = latitudeToTileY(b.north, zoom);
+  const y1 = latitudeToTileY(b.south, zoom);
+  const tileSizeX = size / (x1 - x0);
+  const tileSizeY = size / (y1 - y0);
+  const tiles: SatelliteTile[] = [];
+  for (let y = Math.floor(y0); y <= Math.floor(y1); y++) {
+    for (let x = Math.floor(x0); x <= Math.floor(x1); x++) {
+      tiles.push({
+        zoom, x, y,
+        drawX: (x - x0) * tileSizeX,
+        drawY: (y - y0) * tileSizeY,
+        drawWidth: tileSizeX,
+        drawHeight: tileSizeY,
+      });
+    }
+  }
+  if (tiles.length > 100) throw Error('Too many image tiles requested.');
+  return tiles;
 }
