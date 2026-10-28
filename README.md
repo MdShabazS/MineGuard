@@ -68,6 +68,13 @@ Routes: `/` home, `/red` Red Team portal (Create Room, or resume via the private
 - `client/src/world/` — React Three Fiber scene: terrain, roads, trees, landmarks, bounds, picking.
 - `tests/e2e/` — browser end-to-end tests (playwright-core with the installed Edge/Chrome).
 
+
+## BITM Ballari real satellite view (optional)
+
+In either Red or Blue 3D world, choose **BITM Satellite · 5 km** under **Map view**. The preset centres on BITM at approximately **15.168082°N, 76.850186°E**, showing a live Esri World Imagery image across a 10 × 10 km square with a yellow **5 km radius** boundary. The **Original 3D** button restores the original virtual world. **Import licensed map** lets each browser display a locally selected north-up 10 km-square JPEG/PNG/WebP offline, without uploading it. [Detailed setup, coordinate registration, attribution and restrictions](docs/BITM_SATELLITE_5KM.md).
+
+**Important:** This is geographic imagery draped over *synthetic* terrain heights. The actual mission engine, Red privacy, 200 × 200 virtual coordinates, simulated sensor and detection metrics remain unchanged. Imagery display is not real elevation, underground sensing, or evidence that real ground is clear. Live Esri imagery requires internet and provider availability; no map tile scraping/caching is performed.
+
 ## Network access and deployment status
 The built React app, API, Socket.IO and SQLite share one Node host server. `npm run build` then `npm start` exposes local/LAN addresses on port 3000 where firewall/network permits. Use the actual host IPv4 from another device, not localhost; see `docs/MG011_NETWORK_RUNBOOK.md` for step-by-step physical LAN and optional temporary HTTPS tunnel access. **No externally reachable deployment or physical two-device success is asserted here.**
 
