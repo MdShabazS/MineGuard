@@ -3,7 +3,8 @@
 The entire project is maintained in GitHub repository MdShabazS/MineGuard. Neither a chat statement nor a local unsynced Codex workspace counts as task completion.
 
 ## Two owners
-Rahil: original developer/tester of MG-001–MG-008; MG-011 remains assigned to Rahil for physical LAN/online two-device testing.\nShabaz with ChatGPT assistance: MG-010 implementation and review handoff; automated QA only where GitHub Actions actually runs it. The previous Rahil-only rule remains historical, not a claim about future test runs.
+Rahil: original developer/tester of MG-001–MG-008. For MG-011, he or Shabaz must physically run the two-device checks; no remote CI run can replace physical hardware proof.
+Shabaz with ChatGPT assistance: authorized implementation and network test automation for MG-010/MG-011; automated test results may be attributed only to the actual CI runner. MG-011 is IN_PROGRESS until physical LAN and online access is evidenced.
 Shabaz: specifications and presentations plus authorized MG-010 ChatGPT-assisted code handoff. Do not mark any test PASS unless it was actually executed and evidenced.
 
 ## Serial task gate
