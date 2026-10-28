@@ -1,6 +1,6 @@
 # MineGuard V0.1 — Red Team / Blue Team Digital Twin
 
-**Status:** MG-001 app scaffold built and smoke-tested (see tasks/evidence/MG-001.md); 3D world and simulation features NOT STARTED. **Deadline:** 24-hour prototype.
+**Status:** MG-001 app scaffold and MG-002 shared 3D world built and tested (see tasks/evidence/); rooms, placement, flight and detection NOT STARTED. **Deadline:** 24-hour prototype.
 **Authoritative source of truth:** This GitHub repository. No task is done based on a chat message or an unpushed local workspace.
 
 ## Goal
@@ -46,6 +46,7 @@ npm run build      # build the client into client/dist
 npm start          # production: one origin on http://localhost:3000 serving client, /api and Socket.IO (PORT env to change)
 npm test           # server smoke tests (run "npm run build" first to include the served-client test)
 npm run typecheck  # TypeScript checks for client and server
+npm run test:e2e   # browser test: Red + Blue in headless Edge (needs "npm run build"; MINEGUARD_E2E_BROWSER=chrome to use Chrome)
 ```
 
 Routes: `/` home, `/red` Red Team (attacker) portal, `/blue` Blue Team (defence) portal, `/api/health` server status.
@@ -54,6 +55,9 @@ Routes: `/` home, `/red` Red Team (attacker) portal, `/blue` Blue Team (defence)
 - `client/` — Vite + React + TypeScript + Tailwind; `src/pages/` holds Home, AttackerPortal, DefencePortal.
 - `server/` — Express + Socket.IO (`src/app.ts` builds the server, `src/index.ts` starts it); `test/` holds smoke tests (node:test via tsx).
 - `shared/protocol.ts` — types and event names shared by client and server.
+- `shared/world.ts` — the one shared world and X/Z coordinate system (see docs/ARCHITECTURE.md).
+- `client/src/world/` — React Three Fiber scene: terrain, roads, trees, landmarks, bounds, picking.
+- `tests/e2e/` — browser end-to-end tests (playwright-core with the installed Edge/Chrome).
 
 ## Planned technical stack
 Vite + React + TypeScript, Three.js/React Three Fiber, Node + Express + Socket.IO, SQLite for runtime persistence, bundled terrain assets. A single laptop-hosted backend serves same-world online tunnel access and local Wi-Fi backup. Neither hosting nor implementation has been completed yet.

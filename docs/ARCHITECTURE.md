@@ -1,10 +1,20 @@
 # Architecture — Source of Truth, Security and Simulation
 
-## Proposed implementation (not built yet)
+## Implementation stack (scaffold built in MG-001)
 - Frontend: Vite/React/TypeScript, React Three Fiber + Three.js, responsive mission-control UI.
 - Backend: Node.js + Express + Socket.IO, typed shared messages, server-authoritative room, route, flight and sensing logic.
 - Persistence: SQLite on the running server (not in Git); source, safe seed fixtures, documentation and test evidence versioned on GitHub.
 - Network: one stateful server accessible by local IP or optional HTTPS tunnel. Both portals access same server; online and local don't become independent divergent worlds.
+
+## Shared world and coordinate system (implemented, MG-002)
+Defined once in `shared/world.ts`; the server builds it and serves it at `GET /api/world`, and both portals render that same definition.
+- World `mg-field-01`, 200 x 200 **virtual units** (fictional, not GPS): X in [0, 200], Z in [0, 200]. Corners are labelled in the 3D view.
+- Height Y = `terrainHeight(world, x, z)`, deterministic (gaussian hills + gentle undulation). Roads are polylines; 140 trees come from a fixed-seed PRNG and stay clear of roads/landmarks; landmarks: base camp, radio mast, pond.
+- Three.js scene position = (x - 100, y, z - 100): world (0,0) is scene (-100, -100), world centre (100,100) is the scene origin. Use `worldToScene` / `sceneToWorld`; never hand-convert.
+- `isInBounds` rejects out-of-range and non-finite values (server must use it for every placement and waypoint). UI/placement precision is 0.1 unit (`roundCoord`).
+- `checksum` (FNV-1a of the canonical definition) is verified by each client, so Red and Blue provably render the same world.
+- Terrain click picks a world X/Z; a pointer drag over 4 px is a camera orbit, not a click.
+- `/api/world` is public and contains no scenario/hazard data. Hazards will never be added to it.
 
 ## Data flow
 Red UI -> attacker-authenticated placement commands -> server private scenario

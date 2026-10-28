@@ -12,7 +12,7 @@ interface Props {
 export default function PortalLayout({ team, title, subtitle, children }: Props) {
   const accent = team === 'red' ? 'border-rose-500/60' : 'border-sky-500/60';
   return (
-    <main className="mx-auto max-w-3xl px-4 py-10">
+    <main className="mx-auto max-w-6xl px-4 py-10">
       <Link to="/" className="text-sm text-slate-400 hover:text-slate-200">
         ← MineGuard home
       </Link>

@@ -15,6 +15,9 @@ Socket.IO (same origin, default path `/socket.io`):
 - Server → client `server:hello` on connect: `{ socketId, serverTime, version }`.
 - Client → server `system:ping(echo: string, ack)` → ack `{ pong: true, serverTime, echo }` (echo truncated to 64 chars). Connectivity check only.
 
+## Implemented (MG-002)
+`GET /api/world` → `200` JSON `WorldDefinition` (see `shared/world.ts`): `{ terrainId: "mg-field-01", version: 1, units: "virtual units", xMin: 0, xMax: 200, zMin: 0, zMax: 200, hills[], roads[], trees[], landmarks[], checksum }`. Identical for every client; public; never contains scenario/hazard data. Clients recompute `worldChecksum` and reject a mismatch.
+
 Everything below this line is a proposed target, not yet implemented.
 
 ## Suggested HTTP

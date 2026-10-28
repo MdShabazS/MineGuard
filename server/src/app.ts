@@ -10,6 +10,7 @@ import {
   type HealthResponse,
   type ServerToClientEvents,
 } from '../../shared/protocol.js';
+import { createWorldDefinition } from '../../shared/world.js';
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 export const clientDist = path.join(rootDir, 'client', 'dist');
@@ -19,6 +20,7 @@ export function createMineGuardServer() {
   const httpServer = http.createServer(app);
   const io = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer);
   const startedAt = Date.now();
+  const world = createWorldDefinition();
 
   app.use(express.json({ limit: '100kb' }));
 
@@ -32,6 +34,11 @@ export function createMineGuardServer() {
       socketClients: io.engine.clientsCount,
     };
     res.json(body);
+  });
+
+  // The single shared terrain. Public: contains no scenario or hazard data.
+  app.get('/api/world', (_req, res) => {
+    res.json(world);
   });
 
   app.use('/api', (_req, res) => {
