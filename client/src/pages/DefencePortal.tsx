@@ -220,7 +220,7 @@ export default function DefencePortal() {
                 follow={follow}
                 footprintRadius={FOOTPRINT_RADIUS[(showMission ? mission!.mission!.plan : routeShown ?? { footprintProfile: profile }).footprintProfile]}
                 candidates={candidates}
-                revealedTruth={revealedResult?.missionId === telemetry?.missionId ? revealedResult.truth : []}
+                revealedTruth={revealedResult && revealedResult.missionId === telemetry?.missionId ? revealedResult.truth : []}
                 selectedCandidate={selectedCandidate}
                 onSelectCandidate={setSelectedCandidate}
               />
