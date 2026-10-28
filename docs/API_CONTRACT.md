@@ -129,6 +129,22 @@ Code: `shared/sensor.ts` (constants, `firstEntry`, `drawFromDigest`, `decide`, p
 | socket `observation:created` | New `PublicCandidate`, to the room's Blue **and** Red sockets |
 | Red tracking | `mission:snapshot`, `mission:telemetry` and `observation:created` also go to the room's Red channel (public-safe data). The Red UI toggle "Show defence drone…" draws them |
 
+## Under review (MG-010 branch, not yet released on main)
+
+Routes below are implemented on draft PR #1 and must not be represented as released until CI and merge succeed. All routes sit under the existing room-scoped mission router:
+
+| Request | Expected result |
+|---|---|
+| GET /api/rooms/:code/mission/:missionId/reveal-state | Returns only {missionId,revealed,reportId}; cross-room/unknown mission 404 |
+| POST /api/rooms/:code/mission/:missionId/reveal | Only FINISHED; explicitly computes/stores frozen historical truth and score; idempotent after reveal |
+| GET /api/rooms/:code/mission/:missionId/results | 409 REPORT_NOT_READY until reveal, then immutable result JSON scoped to exact mission/room |
+| GET /api/rooms/:code/mission/:missionId/report | Post-reveal standalone printable HTML report, honest Print / Save as PDF (not a direct PDF binary) |
+| PATCH /api/rooms/:code/mission/observations/:candidateId/review | Prior behavior unchanged until reveal; afterwards review updates are blocked to preserve frozen report |
+
+Security: no GET, reload, STOP or mission FINISHED alone reveals private objects. The explicit POST reveal is allowed to guests with the correct room code **after FINISHED** (documented classroom policy). Raw attacker bearer tokens are never exported. Results use the mission-start private baseline plus the complete mission-scoped audit and private sensor decisions; previously completed missions without reliable baseline snapshots fail closed rather than fabricating scores.
+
+Frozen summary: TP/FP/FN/UNSCANNED; precision and recall are null/N/A when denominators are zero. Estimated area is actual swept virtual area on the 1-unit grid, not proof of safe or cleared land. Correctly retain Live move/delete history, don't compare only current objects.
+
 Everything below this line is a proposed target, not yet implemented.
 
 ## Suggested HTTP
