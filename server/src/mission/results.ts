@@ -230,7 +230,8 @@ export class ResultsEngine {
     ).run(room.revision, m.id, room.id);
   }
 
-  state(room: RoomRecord, missionId: string): RevealState {
+  state(room: RoomRecord, missionId: string): RevealState | null {
+    if (!this.mission(room, missionId)) return null;
     const row = this.store.db.prepare(
       'SELECT report_id FROM mission_results WHERE room_id=? AND mission_id=?',
     ).get(room.id, missionId) as { report_id: string } | undefined;
