@@ -1,6 +1,6 @@
 # MineGuard V0.1 — Red Team / Blue Team Digital Twin
 
-**Status:** MG-001 scaffold, MG-002 shared 3D world, MG-004 rooms / private Red editing, MG-007 mission planning / flight / cameras and MG-008 virtual sensing / candidates / Live timing / Red tracking built and tested (see tasks/evidence/); MG-010 scoring/reveal/print export IN PROGRESS on feature PR #1; not complete until verified and merged. **Deadline:** 24-hour prototype.
+**Status:** MG-001 scaffold, MG-002 shared 3D world, MG-004 rooms / private Red editing, MG-007 mission planning / flight / cameras and MG-008 virtual sensing / candidates / Live timing / Red tracking built and tested (see tasks/evidence/); MG-010 explicit reveal, historical scoring and Print / Save as PDF verified in GitHub CI (80 backend and 6 browser tests); see tasks/evidence/MG-010.md. Physical device testing MG-011 remains next. **Deadline:** 24-hour prototype.
 **Authoritative source of truth:** This GitHub repository. No task is done based on a chat message or an unpushed local workspace.
 
 ## Goal
