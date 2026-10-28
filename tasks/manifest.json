@@ -1,0 +1,146 @@
+{
+  "schemaVersion": 1,
+  "project": "MineGuard V0.1 Red-Blue Digital Twin",
+  "order": [
+    "MG-000",
+    "MG-001",
+    "MG-002",
+    "MG-003",
+    "MG-004",
+    "MG-005",
+    "MG-006",
+    "MG-007",
+    "MG-008",
+    "MG-009",
+    "MG-010",
+    "MG-011",
+    "MG-012",
+    "MG-013"
+  ],
+  "tasks": {
+    "MG-000": {
+      "owner": "Shabaz",
+      "kind": "DOC",
+      "dependsOn": [],
+      "title": "Reset repository and publish all baseline docs",
+      "evidence": "README.md"
+    },
+    "MG-001": {
+      "owner": "Rahil",
+      "kind": "BUILD",
+      "dependsOn": [
+        "MG-000"
+      ],
+      "title": "App scaffold: React, Express, Socket.IO, health route and smoke tests",
+      "evidence": "tasks/evidence/MG-001.md"
+    },
+    "MG-002": {
+      "owner": "Rahil",
+      "kind": "BUILD",
+      "dependsOn": [
+        "MG-001"
+      ],
+      "title": "One shared interactive 3D terrain and consistent X/Z system",
+      "evidence": "tasks/evidence/MG-002.md"
+    },
+    "MG-003": {
+      "owner": "Shabaz",
+      "kind": "DOC",
+      "dependsOn": [
+        "MG-002"
+      ],
+      "title": "Scenario object and Red Portal acceptance contract",
+      "evidence": "docs/specs/SCENARIO_CONTRACT.md"
+    },
+    "MG-004": {
+      "owner": "Rahil",
+      "kind": "BUILD",
+      "dependsOn": [
+        "MG-003"
+      ],
+      "title": "Rooms, private attacker controls and Red editing",
+      "evidence": "tasks/evidence/MG-004.md"
+    },
+    "MG-005": {
+      "owner": "Shabaz",
+      "kind": "DOC",
+      "dependsOn": [
+        "MG-004"
+      ],
+      "title": "Defender mission-planner and camera acceptance contract",
+      "evidence": "docs/specs/MISSION_ACCEPTANCE.md"
+    },
+    "MG-006": {
+      "owner": "Shabaz",
+      "kind": "DOC",
+      "dependsOn": [
+        "MG-005"
+      ],
+      "title": "Detection and evaluation acceptance contract",
+      "evidence": "docs/specs/DETECTION_ACCEPTANCE.md"
+    },
+    "MG-007": {
+      "owner": "Rahil",
+      "kind": "BUILD",
+      "dependsOn": [
+        "MG-006"
+      ],
+      "title": "Grid/manual flight, drone animation and controls",
+      "evidence": "tasks/evidence/MG-007.md"
+    },
+    "MG-008": {
+      "owner": "Rahil",
+      "kind": "BUILD",
+      "dependsOn": [
+        "MG-007"
+      ],
+      "title": "Sensor simulation, candidate map, live edits and tracking",
+      "evidence": "tasks/evidence/MG-008.md"
+    },
+    "MG-009": {
+      "owner": "Shabaz",
+      "kind": "DOC",
+      "dependsOn": [
+        "MG-008"
+      ],
+      "title": "Report and faculty demonstration template",
+      "evidence": "docs/specs/REPORT_PRESENTATION.md"
+    },
+    "MG-010": {
+      "owner": "Rahil",
+      "kind": "BUILD",
+      "dependsOn": [
+        "MG-009"
+      ],
+      "title": "Comparison, scoring and report export",
+      "evidence": "tasks/evidence/MG-010.md"
+    },
+    "MG-011": {
+      "owner": "Rahil",
+      "kind": "BUILD",
+      "dependsOn": [
+        "MG-010"
+      ],
+      "title": "Online and local two-device access testing",
+      "evidence": "tasks/evidence/MG-011.md"
+    },
+    "MG-012": {
+      "owner": "Shabaz",
+      "kind": "DOC",
+      "dependsOn": [
+        "MG-011"
+      ],
+      "title": "Final explanation and presentation Q&A",
+      "evidence": "docs/specs/FACULTY_DEMO_NOTES.md"
+    },
+    "MG-013": {
+      "owner": "Rahil",
+      "kind": "BUILD",
+      "dependsOn": [
+        "MG-012"
+      ],
+      "title": "Full release QA, runbook and stabilization",
+      "evidence": "tasks/evidence/MG-013.md"
+    }
+  }
+}

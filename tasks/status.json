@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 1,
+  "tasks": {
+    "MG-000": {
+      "owner": "Shabaz",
+      "state": "DONE",
+      "evidence": "README.md"
+    },
+    "MG-001": {
+      "owner": "Rahil",
+      "state": "TODO",
+      "evidence": null
+    },
+    "MG-002": {
+      "owner": "Rahil",
+      "state": "TODO",
+      "evidence": null
+    },
+    "MG-003": {
+      "owner": "Shabaz",
+      "state": "TODO",
+      "evidence": null
+    },
+    "MG-004": {
+      "owner": "Rahil",
+      "state": "TODO",
+      "evidence": null
+    },
+    "MG-005": {
+      "owner": "Shabaz",
+      "state": "TODO",
+      "evidence": null
+    },
+    "MG-006": {
+      "owner": "Shabaz",
+      "state": "TODO",
+      "evidence": null
+    },
+    "MG-007": {
+      "owner": "Rahil",
+      "state": "TODO",
+      "evidence": null
+    },
+    "MG-008": {
+      "owner": "Rahil",
+      "state": "TODO",
+      "evidence": null
+    },
+    "MG-009": {
+      "owner": "Shabaz",
+      "state": "TODO",
+      "evidence": null
+    },
+    "MG-010": {
+      "owner": "Rahil",
+      "state": "TODO",
+      "evidence": null
+    },
+    "MG-011": {
+      "owner": "Rahil",
+      "state": "TODO",
+      "evidence": null
+    },
+    "MG-012": {
+      "owner": "Shabaz",
+      "state": "TODO",
+      "evidence": null
+    },
+    "MG-013": {
+      "owner": "Rahil",
+      "state": "TODO",
+      "evidence": null
+    }
+  }
+}
