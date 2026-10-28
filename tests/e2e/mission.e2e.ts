@@ -201,6 +201,11 @@ test('MG-007 Blue mission planning, flight controls, cameras, refresh and privac
   await blue.click('[data-testid="speed-1"]');
   await blue.waitForFunction(() => document.querySelector('[data-testid="tel-speed"]')?.textContent === '1×');
 
+  // Pause the authoritative server clock before slow software-WebGL screenshots.
+  // This preserves a live, resumable mission on slow Linux CI machines.
+  await blue.click('[data-testid="pause-mission"]');
+  await waitStatus(blue, 'PAUSED');
+
   // ---- M22-M25: three distinct cameras; switching never changes the mission ---
   const poses: Record<string, string> = {};
   for (const mode of ['OVERVIEW', 'TOP_DOWN', 'FOLLOW'] as const) {
@@ -217,13 +222,13 @@ test('MG-007 Blue mission planning, flight controls, cameras, refresh and privac
   assert.equal(new Set(Object.values(poses)).size, 3, 'three distinct poses');
   const afterCams = await tel(blue);
   assert.equal(afterCams.missionId, paused.missionId, 'camera switches do not change the mission');
-  assert.equal(afterCams.status, 'RUNNING');
+  assert.equal(afterCams.status, 'PAUSED', 'camera switches cannot resume or finish the mission');
 
   // ---- M27: second Blue tab shows the same mission ------------------------------
   const blue2 = await ctx.newPage();
   track(blue2, 'blue2');
   await openBlue(blue2, room.roomCode);
-  await waitStatus(blue2, 'RUNNING');
+  await waitStatus(blue2, 'PAUSED');
   assert.equal((await tel(blue2)).missionId, paused.missionId);
 
   // ---- M18: stop early from tab 2; tab 1 sees it ---------------------------------
