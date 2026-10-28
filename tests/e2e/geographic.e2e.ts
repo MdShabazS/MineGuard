@@ -9,6 +9,7 @@ import { after, before, test } from 'node:test';
 import { chromium, type Browser, type Page } from 'playwright-core';
 import { clientDist, createMineGuardServer } from '../../server/src/app.js';
 import { BITM_AREA } from '../../shared/geographic.js';
+import { visiblePixelDifference } from '../helpers/screenshot-difference.js';
 
 // A real, sizeable test PNG rather than the former 1×1 pixel. This is a
 // fixture from the fictional world, NOT a claim that it is satellite imagery.
@@ -45,39 +46,6 @@ async function open(pathname: string): Promise<Page> {
 }
 
 
-async function renderedDifference(page: Page, before: Buffer, after: Buffer): Promise<number> {
-  const toData = (value: Buffer) => 'data:image/png;base64,' + value.toString('base64');
-  return page.evaluate(async ({ a, b }) => {
-    const read = async (src: string): Promise<ImageData> => {
-      const image = new Image();
-      image.src = src;
-      await image.decode();
-      const canvas = document.createElement('canvas');
-      canvas.width = image.naturalWidth;
-      canvas.height = image.naturalHeight;
-      const ctx = canvas.getContext('2d')!;
-      ctx.drawImage(image, 0, 0);
-      return ctx.getImageData(0, 0, canvas.width, canvas.height);
-    };
-    const old = await read(a), current = await read(b);
-    if (old.width !== current.width || old.height !== current.height) throw Error('Canvas dimensions changed');
-    let changed = 0, total = 0;
-    // Sample only the central 70% of the canvas; text overlays and HUD sit
-    // outside, so this tests painted map pixels rather than status messages.
-    for (let y = Math.floor(old.height * 0.15); y < old.height * 0.85; y += 9) {
-      for (let x = Math.floor(old.width * 0.15); x < old.width * 0.85; x += 9) {
-        const i = (y * old.width + x) * 4;
-        const difference = Math.abs(old.data[i] - current.data[i]) +
-          Math.abs(old.data[i + 1] - current.data[i + 1]) +
-          Math.abs(old.data[i + 2] - current.data[i + 2]);
-        if (difference > 75) changed++;
-        total++;
-      }
-    }
-    return changed / Math.max(1, total);
-  }, { a: toData(before), b: toData(after) });
-}
-
 test('Red and Blue both select the same BITM 5km satellite view while world truth stays unchanged', async () => {
   const red = await open('/red');
   const blue = await open('/blue');
@@ -98,7 +66,7 @@ test('Red and Blue both select the same BITM 5km satellite view while world trut
       assert.match(tileStatus ?? '', /^\d+\/\d+ satellite tiles displayed$/);
       await page.waitForTimeout(350); // WebGL upload/render after CanvasTexture creation
       const satellitePixels = await page.locator('[data-testid="world-view"] canvas').screenshot();
-      const changed = await renderedDifference(page, originalPixels, satellitePixels);
+      const changed = await visiblePixelDifference(page, originalPixels, satellitePixels);
       assert.ok(changed > 0.10, 'Satellite map must materially repaint the rendered terrain, not just report "loaded": difference=' + changed);
       assert.equal(await page.locator('[data-testid="bitm-map-label"]').count(), 0,
         'No obstructive 5 km circle or label by default');
