@@ -28,12 +28,18 @@ export default function ResultsPanel({
     setError(null);
     setReady(false);
     onResult(null);
-    api.results(missionId).then((r) => {
-      if (!cancelled) {
-        setValue(r.result);
-        onResult(r.result);
-        setReady(true);
-      }
+    // Read safe reveal metadata first. An unrevealed mission must not produce
+    // an expected 409 request/console error merely because this panel mounted.
+    api.resultState(missionId).then((state) => {
+      if (cancelled) return;
+      if (!state.revealed) { setReady(true); return; }
+      return api.results(missionId).then((r) => {
+        if (!cancelled) {
+          setValue(r.result);
+          onResult(r.result);
+          setReady(true);
+        }
+      });
     }).catch((err: unknown) => {
       if (cancelled) return;
       if (!(err instanceof ApiFailure && err.code === 'REPORT_NOT_READY')) {
