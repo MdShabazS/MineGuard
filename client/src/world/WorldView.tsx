@@ -1,7 +1,9 @@
-import { useState, type ReactNode } from 'react';
+import { useRef, useState, type MutableRefObject, type ReactNode } from 'react';
 import { Canvas, type ThreeEvent } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
+import type { CameraMode } from '../../../shared/mission';
 import { isInBounds, roundCoord, sceneToWorld, worldToScene, type Vec2, type WorldDefinition } from '../../../shared/world';
+import CameraRig, { type FollowTarget } from './CameraRig';
 import Terrain from './Terrain';
 import { Bounds, Landmarks, Roads, Trees } from './Features';
 import { useWorld } from './useWorld';
@@ -25,12 +27,13 @@ function ClickMarker({ world, at }: { world: WorldDefinition; at: Vec2 }) {
   );
 }
 
-function Scene({ world, onHover, onPick, picked, children }: {
+function Scene({ world, onHover, onPick, picked, children, camera }: {
   world: WorldDefinition;
   onHover: (p: Vec2 | null) => void;
   onPick: (p: Vec2) => void;
   picked: Vec2 | null;
   children?: ReactNode;
+  camera: ReactNode;
 }) {
   return (
     <>
@@ -54,7 +57,8 @@ function Scene({ world, onHover, onPick, picked, children }: {
       <Bounds world={world} />
       {picked && <ClickMarker world={world} at={picked} />}
       {children}
-      <OrbitControls makeDefault enableDamping target={[0, 0, 0]} minDistance={40} maxDistance={320} maxPolarAngle={1.35} />
+      <OrbitControls makeDefault enableDamping target={[0, 0, 0]} minDistance={25} maxDistance={340} maxPolarAngle={1.35} />
+      {camera}
     </>
   );
 }
@@ -69,9 +73,14 @@ interface WorldViewProps {
   /** DOM overlay on top of the canvas (e.g. a placement-mode banner). */
   overlay?: ReactNode;
   crosshair?: boolean;
+  /** Overview (default), Follow (needs followTarget) or Top-Down. Visual only; never affects the simulation. */
+  cameraMode?: CameraMode;
+  followTarget?: MutableRefObject<FollowTarget | null>;
+  cameraResetKey?: number;
 }
 
-export default function WorldView({ onPick, renderScene, overlay, crosshair }: WorldViewProps = {}) {
+export default function WorldView({ onPick, renderScene, overlay, crosshair, cameraMode = 'OVERVIEW', followTarget, cameraResetKey }: WorldViewProps = {}) {
+  const host = useRef<HTMLElement>(null);
   const state = useWorld();
   const [hover, setHover] = useState<Vec2 | null>(null);
   const [picked, setPicked] = useState<Vec2 | null>(null);
@@ -88,6 +97,8 @@ export default function WorldView({ onPick, renderScene, overlay, crosshair }: W
   const { world } = state;
   return (
     <section
+      ref={host}
+      data-camera-mode={cameraMode}
       data-testid="world-view"
       data-terrain-id={world.terrainId}
       data-checksum={world.checksum}
@@ -111,6 +122,7 @@ export default function WorldView({ onPick, renderScene, overlay, crosshair }: W
               onPick?.(p);
             }}
             picked={picked}
+            camera={<CameraRig mode={cameraMode} follow={followTarget} resetKey={cameraResetKey} host={host} />}
           >
             {renderScene?.(world)}
           </Scene>

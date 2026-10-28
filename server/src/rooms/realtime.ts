@@ -10,7 +10,12 @@ type ClientSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
 const publicChannel = (room: RoomRecord) => `pub:${room.id}`;
 const attackerChannel = (room: RoomRecord) => `red:${room.id}`;
 
-export function attachRoomRealtime(io: IO, store: RoomStore) {
+export interface RealtimeOptions {
+  /** Extra state pushed to a defender socket right after it joins (e.g. the mission snapshot). */
+  onDefenderJoin?: (socket: ClientSocket, room: RoomRecord) => void;
+}
+
+export function attachRoomRealtime(io: IO, store: RoomStore, options: RealtimeOptions = {}) {
   io.on('connection', (socket: ClientSocket) => {
     let joined: string | null = null;
 
@@ -37,12 +42,17 @@ export function attachRoomRealtime(io: IO, store: RoomStore) {
       joined = publicChannel(room);
       socket.join(joined);
       ack({ ok: true, role: 'defender', snapshot: store.publicSnapshot(room) });
+      options.onDefenderJoin?.(socket, room);
     });
 
     socket.on('room:leave', leave);
   });
 
   return {
+    /** Public (defender) channel only: mission data is public, never scenario objects. */
+    toPublic(room: RoomRecord) {
+      return io.to(publicChannel(room));
+    },
     changed(room: RoomRecord) {
       io.to(attackerChannel(room)).emit('room:attacker-snapshot', store.attackerSnapshot(room));
       io.to(publicChannel(room)).emit('room:public-snapshot', store.publicSnapshot(room));

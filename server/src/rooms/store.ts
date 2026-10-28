@@ -76,7 +76,10 @@ const toObject = (r: ObjectRow): ScenarioObject => ({
 const pickFields = (o: ScenarioObject) => ({ kind: o.kind, subtype: o.subtype, x: o.x, z: o.z });
 
 export class RoomStore {
-  private db: DatabaseSync;
+  /** Shared with the mission engine so all runtime state lives in one SQLite file. */
+  readonly db: DatabaseSync;
+  /** Set by the mission engine: current mission sim time for a room, stamped on audit events. */
+  missionClock: (roomId: string) => number | null = () => null;
 
   constructor(
     dbPath: string,
@@ -166,6 +169,11 @@ export class RoomStore {
     return (row as unknown as RoomRecord | undefined) ?? null;
   }
 
+  findRoomById(id: string): RoomRecord | null {
+    const row = this.db.prepare('SELECT id, code, mode, state, revision FROM rooms WHERE id = ?').get(id);
+    return (row as unknown as RoomRecord | undefined) ?? null;
+  }
+
   verifyAttacker(room: RoomRecord, token: unknown): boolean {
     if (typeof token !== 'string' || token.length < 20 || token.length > 200) return false;
     const row = this.db.prepare('SELECT attacker_token_hash AS h FROM rooms WHERE id = ?').get(room.id) as { h: Uint8Array } | undefined;
@@ -210,7 +218,7 @@ export class RoomStore {
   }
 
   /** Bump the room revision and append one audit record. Call inside a transaction. */
-  private record(room: RoomRecord, action: AuditAction, objectId: string | null, before: unknown, after: unknown, now: string, missionSimTime: number | null = null) {
+  private record(room: RoomRecord, action: AuditAction, objectId: string | null, before: unknown, after: unknown, now: string, missionSimTime: number | null = this.missionClock(room.id)) {
     room.revision += 1;
     this.db.prepare('UPDATE rooms SET revision = ?, mode = ?, state = ?, updated_at = ? WHERE id = ?').run(room.revision, room.mode, room.state, now, room.id);
     this.db

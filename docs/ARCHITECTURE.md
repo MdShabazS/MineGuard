@@ -22,6 +22,13 @@ Defined once in `shared/world.ts`; the server builds it and serves it at `GET /a
 - Role isolation is server-side. Blue HTTP/socket responses are built only from `publicSnapshot()`, which has no object fields; Blue never holds hidden data to hide. Red markers render only from the attacker snapshot.
 - Limit: 100 active objects per room (`MAX_ACTIVE_OBJECTS`), rejected with `OBJECT_LIMIT`.
 
+## Mission engine (implemented, MG-007)
+- `MissionEngine` (server) owns all flight state: one active mission per room, tables `mission_plans` (one current plan per room) and `missions` (every mission with plan snapshot, status, end reason, sim time, distance, speed, sequence, seed), in the same SQLite file as rooms.
+- Browsers never advance the flight. They render the server's telemetry and ease the drone along the route by distance between updates, so turns are followed exactly. Camera mode (Overview / Follow / Top-Down) is local to each browser and never sent to the server.
+- Every tick's travel is split at waypoints into chronological `FlownSubsegment`s and passed to `sweepHook`, so MG-008 can run swept-footprint sensing at any speed without cutting corners.
+- Restart policy is fail-closed: RUNNING missions are restored as PAUSED at their last persisted position, with `pausedByRestart`.
+- Live-mode Red edits during a mission are stamped with the mission's current sim time in the audit (`missionSimTime`).
+
 ## Data flow
 Red UI -> attacker-authenticated placement commands -> server private scenario
 Blue UI -> mission planning/controls -> server-authoritative route & virtual drone

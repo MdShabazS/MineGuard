@@ -58,6 +58,53 @@ A failed command never changes objects, history or `scenarioRevision`.
 - Server → defender sockets only: `room:public-snapshot` (metadata only) after every successful mutation.
 - Red and Blue sockets join separate channels (`red:<roomId>`, `pub:<roomId>`), so no broadcast crosses roles or rooms. Clients re-join automatically on reconnect.
 
+## Implemented (MG-007) — mission planning, server-driven flight, controls
+Types: `shared/mission.ts` (plan/telemetry/snapshot/command types, validation, grid generator, route geometry) and `shared/sensor.ts` (sensor modes, footprint radii NARROW=6 / STANDARD=10 / WIDE=16 — the single source for MG-008). Server: `server/src/mission/engine.ts`, `server/src/mission/routes.ts`.
+
+**Auth.** Mission routes need only the room code (Blue's guest credential). They never accept or return scenario objects, object IDs, or attacker data.
+
+| Method + path | Success | Body / notes |
+|---|---|---|
+| `GET /api/rooms/:code/mission` | 200 `MissionSnapshot` | `{ roomCode, plan, mission, startBlockedReason }`. `mission` is the live or most recent mission (telemetry + its frozen plan) |
+| `POST /api/rooms/:code/mission/plan` | 201 `{ plan, snapshot }` | MANUAL: `{ routeKind:"MANUAL", waypoints:[{x,z}...], sensorMode, footprintProfile }`. GRID: `{ routeKind:"GRID", grid:{ x1,z1,x2,z2, laneSpacing, orientation:"AUTO"\|"ALONG_X"\|"ALONG_Z" }, sensorMode, footprintProfile }`. The server returns canonical waypoints, `routeLength`, `planId`, `planRevision`, `grid` (min/max corners, lane count, actual spacing) and `potentialGaps` |
+| `POST /api/rooms/:code/mission/command` | 200 `{ snapshot }` | `{ action:"START", planId, planRevision, playbackSpeed? }`, `{ action:"PAUSE"\|"RESUME"\|"STOP"\|"NEW_MISSION", missionId }`, `{ action:"SET_SPEED", missionId, playbackSpeed:1\|2\|4 }` |
+
+**Validation.**
+- Manual routes: 2–50 waypoints. Each point is validated like Red coordinates (finite, 0..200, checked before rounding, then rounded to 0.1). Adjacent identical points (zero-length legs) are rejected.
+- Grid routes: corners are normalised to min/max and must give positive width and height. Lane spacing must be at least 2 and no more than the cross-lane size, with at most 60 lanes.
+- Grid lanes run serpentine along the chosen axis. The first and last lanes lie exactly on the rectangle edges, and spacing is reduced (never increased) so lanes divide the rectangle evenly.
+- `potentialGaps` is true when the actual spacing is more than 2r for the chosen footprint.
+
+**Start rules.**
+- CHALLENGE + DRAFT: rejected (Red must lock).
+- CHALLENGE + LOCKED, or LIVE + DRAFT: allowed.
+- Only one mission per room may be RUNNING or PAUSED.
+- FINISHED needs `NEW_MISSION`, which returns the room to LOCKED (Challenge) or DRAFT (Live) and keeps the old mission record.
+- The room state follows the mission (RUNNING / PAUSED / FINISHED). Each change bumps `scenarioRevision` once; per-tick telemetry does not.
+
+**Errors** `{ error, message }`:
+
+| HTTP | `error` | When |
+|---|---|---|
+| 400 | `INVALID_ROUTE` | invalid manual or grid route (message says why) |
+| 400 | `INVALID_REQUEST` | bad sensor mode, profile, action or speed |
+| 404 | `ROOM_NOT_FOUND` / `MISSION_NOT_FOUND` | unknown room; `missionId` is not the room's latest mission |
+| 409 | `DUPLICATE_START` | a mission is already running or paused |
+| 409 | `REVISION_CONFLICT` | START with a `planId`/`planRevision` that is not the current plan |
+| 409 | `INVALID_MISSION_STATE` | illegal transition (pause when not running, plan while flying, start while blocked…) |
+
+**Clock.**
+- The server ticks every 100 ms.
+- `simTime += realΔ × speed`; `distance += baseSpeed (8) × realΔ × speed`; `realΔ` is capped at 2 s per tick.
+- Arrival lands exactly on the final waypoint at sim time `routeLength / 8`.
+- Every tick is split at each crossed waypoint into ordered `FlownSubsegment`s `{ legIndex, from, to, distanceStart/End, simTimeStart/End }`, which are passed to `MissionEngine.sweepHook`. That hook is the MG-008 sensor interface.
+- A mission that was RUNNING when the server stopped comes back **PAUSED** with `pausedByRestart: true`. No unobserved flight is simulated.
+
+**Socket.IO** (defender sockets only, room-scoped):
+- `mission:snapshot` is sent on join, on every plan or command, and on every Red room change (lock or mode affects `startBlockedReason`).
+- `mission:telemetry` is sent about 10 times per second while RUNNING: `{ missionId, planId, status, endReason, simTimeSeconds, routeDistanceCompleted, routeLength, completedLegs, currentLegIndex, x, z, altitudeAboveGround, headingRadians, playbackSpeed, sequence, serverTime, pausedByRestart }`. Clients drop anything with a lower `sequence` for the same mission.
+- Red sockets receive the room state change only (drone tracking for Red is MG-008).
+
 Everything below this line is a proposed target, not yet implemented.
 
 ## Suggested HTTP

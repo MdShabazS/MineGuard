@@ -11,6 +11,8 @@ import {
   type ServerToClientEvents,
 } from '../../shared/protocol.js';
 import { createWorldDefinition } from '../../shared/world.js';
+import { MissionEngine } from './mission/engine.js';
+import { missionRoutes } from './mission/routes.js';
 import { attachRoomRealtime } from './rooms/realtime.js';
 import { roomRoutes } from './rooms/routes.js';
 import { RoomStore } from './rooms/store.js';
@@ -23,6 +25,11 @@ export const defaultDbPath = path.join(rootDir, 'data', 'mineguard.sqlite');
 export interface ServerOptions {
   /** SQLite file for runtime room state, or ':memory:'. Never committed to Git. */
   dbPath?: string;
+  /** Mission tick interval in ms (default 100). Tests may pass a custom clock. */
+  tickMs?: number;
+  now?: () => number;
+  /** Set false to drive ticks manually in tests. */
+  autoTick?: boolean;
 }
 
 export function createMineGuardServer(options: ServerOptions = {}) {
@@ -32,7 +39,22 @@ export function createMineGuardServer(options: ServerOptions = {}) {
   const startedAt = Date.now();
   const world = createWorldDefinition();
   const store = new RoomStore(options.dbPath ?? process.env.MINEGUARD_DB ?? defaultDbPath, world);
-  const rooms = attachRoomRealtime(io, store);
+  // Late-bound so the realtime layer can push the mission snapshot on join.
+  let engine: MissionEngine;
+  const rooms = attachRoomRealtime(io, store, {
+    onDefenderJoin: (socket, room) => socket.emit('mission:snapshot', engine.snapshot(room)),
+  });
+  engine = new MissionEngine(
+    store,
+    world,
+    {
+      missionChanged: (room, snapshot) => rooms.toPublic(room).emit('mission:snapshot', snapshot),
+      telemetry: (room, telemetry) => rooms.toPublic(room).emit('mission:telemetry', telemetry),
+      roomChanged: (room) => rooms.changed(room),
+    },
+    { tickMs: options.tickMs, now: options.now },
+  );
+  if (options.autoTick !== false) engine.start();
 
   app.use(express.json({ limit: '100kb' }));
 
@@ -53,7 +75,17 @@ export function createMineGuardServer(options: ServerOptions = {}) {
     res.json(world);
   });
 
-  app.use('/api/rooms', roomRoutes(store, rooms));
+  app.use('/api/rooms/:code/mission', missionRoutes(store, engine));
+  // A Red lock or mode change alters whether Blue may start, so refresh Blue's mission snapshot too.
+  app.use(
+    '/api/rooms',
+    roomRoutes(store, {
+      changed: (room) => {
+        rooms.changed(room);
+        rooms.toPublic(room).emit('mission:snapshot', engine.snapshot(room));
+      },
+    }),
+  );
 
   app.use('/api', (_req, res) => {
     res.status(404).json({ error: 'Not found' });
@@ -89,7 +121,10 @@ export function createMineGuardServer(options: ServerOptions = {}) {
     });
   });
 
-  httpServer.on('close', () => store.close());
+  httpServer.on('close', () => {
+    engine.stop();
+    store.close();
+  });
 
-  return { app, httpServer, io, store };
+  return { app, httpServer, io, store, engine };
 }

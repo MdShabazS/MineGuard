@@ -1,8 +1,9 @@
+import type { MissionCommand, MissionErrorCode, MissionPlan, MissionSnapshot } from '../../../shared/mission';
 import type { ApiError, AttackerRoomSnapshot, CreateRoomResponse, ScenarioObject } from '../../../shared/scenario';
 
 export class ApiFailure extends Error {
   constructor(
-    public code: ApiError['error'] | 'NETWORK',
+    public code: ApiError['error'] | MissionErrorCode | 'NETWORK',
     message: string,
     public current?: ScenarioObject,
   ) {
@@ -43,6 +44,15 @@ export function attackerApi(roomCode: string, token: string) {
       request<MutationReply>('DELETE', `${base}/objects/${encodeURIComponent(id)}?baseRevision=${baseRevision}`, undefined, token),
     setMode: (mode: 'CHALLENGE' | 'LIVE') => request<MutationReply>('POST', `${base}/mode`, { mode }, token),
     lock: () => request<MutationReply>('POST', `${base}/lock`, undefined, token),
+  };
+}
+
+export function missionApi(roomCode: string) {
+  const base = `/api/rooms/${encodeURIComponent(roomCode)}/mission`;
+  return {
+    get: () => request<MissionSnapshot>('GET', base),
+    plan: (body: Record<string, unknown>) => request<{ plan: MissionPlan; snapshot: MissionSnapshot }>('POST', `${base}/plan`, body),
+    command: (cmd: MissionCommand) => request<{ snapshot: MissionSnapshot }>('POST', `${base}/command`, cmd),
   };
 }
 

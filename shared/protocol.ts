@@ -1,6 +1,7 @@
 // Types shared by client and server. Later tasks extend this with room,
 // scenario, mission and observation messages (see docs/API_CONTRACT.md).
 
+import type { MissionSnapshot, MissionTelemetry } from './mission.js';
 import type { AttackerRoomSnapshot, ErrorCode, PublicRoomSnapshot } from './scenario.js';
 
 export const APP_NAME = 'MineGuard V0.1';
@@ -44,6 +45,10 @@ export interface ServerToClientEvents {
   'room:public-snapshot': (snapshot: PublicRoomSnapshot) => void;
   /** Sent only to sockets that joined with a valid attacker token. */
   'room:attacker-snapshot': (snapshot: AttackerRoomSnapshot) => void;
+  /** Defender sockets: full public mission state (plan, status, config). Never scenario objects. */
+  'mission:snapshot': (snapshot: MissionSnapshot) => void;
+  /** Defender sockets: per-tick drone position (about 10 per second while RUNNING). */
+  'mission:telemetry': (telemetry: MissionTelemetry) => void;
 }
 
 export interface ClientToServerEvents {
