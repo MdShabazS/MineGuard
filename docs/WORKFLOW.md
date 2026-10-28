@@ -3,8 +3,8 @@
 The entire project is maintained in GitHub repository MdShabazS/MineGuard. Neither a chat statement nor a local unsynced Codex workspace counts as task completion.
 
 ## Two owners
-Rahil: Codex + ChatGPT, sole application developer/tester/integrator/deployer, all real PASS/FAIL logs and fixes.
-Shabaz: ChatGPT only, product specs, scenario/route/detection/report acceptance, presentation notes. No software runtime test ownership.
+Rahil: original developer/tester of MG-001–MG-008; MG-011 remains assigned to Rahil for physical LAN/online two-device testing.\nShabaz with ChatGPT assistance: MG-010 implementation and review handoff; automated QA only where GitHub Actions actually runs it. The previous Rahil-only rule remains historical, not a claim about future test runs.
+Shabaz: specifications and presentations plus authorized MG-010 ChatGPT-assisted code handoff. Do not mark any test PASS unless it was actually executed and evidenced.
 
 ## Serial task gate
 Tasks are in tasks/manifest.json. Status lives in tasks/status.json on main. The complete order is MG-000 through MG-013, each task after MG-000 depending on the immediately prior one. States: TODO, IN_PROGRESS, DONE. At most one IN_PROGRESS.
@@ -27,7 +27,7 @@ node scripts/task-gate.mjs validate
 Ask ChatGPT to read live GitHub status first; check prerequisites and the task contract. If READY, write his assigned docs/specs/*.md directly to GitHub with GitHub connector and update tasks/status.json to IN_PROGRESS then DONE, referencing committed doc evidence. Shabaz need not use local files/terminal. After commit, send the GitHub commit link to Rahil. A Shabaz task cannot be claimed DONE without its specified document in the repo.
 
 ## Evidence
-BUILD: Only Rahil may record actual tests. File tasks/evidence/MG-XXX.md must include Task: ID, Owner: Rahil, Tester: Rahil, Result: PASS and real execution details. DOC: referenced docs/specs/*.md must exist. A task gate validates this, while GitHub Actions checks state/chain on PR/push.
+BUILD: Require truthful test logs and a named actual tester/execution environment (Rahil, or GitHub Actions CI for MG-010). File tasks/evidence/MG-XXX.md must include Task: ID, Owner: <task owner>, Tester: <actual test runner>, Result: PASS and actual test details. Never state that ChatGPT ran a browser test merely by reading code. DOC: referenced docs/specs/*.md must exist. A task gate validates this, while GitHub Actions checks state/chain on PR/push.
 
 ## Enforcement limits
 A GitHub Actions check will reject invalid status states and skipped dependencies. **The repository administrator must enable a main branch ruleset requiring the task-gate job** to make CI blocking effective at merge time. Direct pushes/admin override can bypass checks if branch protection is not configured; do not falsely claim hard blocking is already protected. The human/agent must run 'check' BEFORE starting any code. Never force push. Avoid multiple people editing tasks/status.json at once.
