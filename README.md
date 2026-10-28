@@ -1,6 +1,6 @@
 # MineGuard V0.1 — Red Team / Blue Team Digital Twin
 
-**Status:** MG-001 scaffold, MG-002 shared 3D world, MG-004 rooms / private Red editing, MG-007 mission planning / flight / cameras and MG-008 virtual sensing / candidates / Live timing / Red tracking built and tested (see tasks/evidence/); results comparison and report export (MG-010) NOT STARTED. **Deadline:** 24-hour prototype.
+**Status:** MG-001 scaffold, MG-002 shared 3D world, MG-004 rooms / private Red editing, MG-007 mission planning / flight / cameras and MG-008 virtual sensing / candidates / Live timing / Red tracking built and tested (see tasks/evidence/); MG-010 scoring/reveal/print export IN PROGRESS on feature PR #1; not complete until verified and merged. **Deadline:** 24-hour prototype.
 **Authoritative source of truth:** This GitHub repository. No task is done based on a chat message or an unpushed local workspace.
 
 ## Goal
@@ -9,8 +9,8 @@ A two-person, hardware-free virtual aerial survey simulator. Red Team places hid
 This is an educational simulator, NOT operational landmine detection, actual buried-mine sensing, verified AI accuracy, or minefield clearance. All world coordinates are fictional X/Z units, NOT real GPS.
 
 ## Responsibilities
-- **A Mohammed Rahil (main developer):** Uses Codex + ChatGPT; implements all code, integration, deployment, testing, QA and fixes. Rahil is the **ONLY software tester**.
-- **Mohammed Shabaz S:** Uses ChatGPT only; owns requirements, scenario/mission/detection/report specs and faculty presentation documents. Does not run software tests or invent PASS evidence.
+- **A Mohammed Rahil:** Original developer and tester for MG-001 through MG-008. MG-011 physical-device/network validation remains with Rahil unless explicitly reassigned.
+- **Mohammed Shabaz S with ChatGPT assistance:** Owns requirements/presentation and the authorized MG-010 coding handoff. GitHub Actions executes actual automated verification; test PASS claims require workflow logs and evidence. No one should invent results.
 - GitHub is authoritative for all code, reproducible configuration, decisions, task status, safe sample scenarios, and actual QA evidence. Temporary working checkouts and runtime server databases are not the authoritative source.
 
 ## Start immediately
@@ -34,7 +34,8 @@ This is an educational simulator, NOT operational landmine detection, actual bur
 - docs/HANDOFF_RAHIL.md and docs/HANDOFF_SHABAZ.md — separate participant instructions.
 - TASK_BOARD.md — serial responsibilities, deliverables, dependencies.
 - scripts/task-gate.mjs, tasks/manifest.json, tasks/status.json — machine task gate.
-- .github/workflows/task-gate.yml — GitHub Actions validation.
+- .github/workflows/task-gate.yml — GitHub Actions dependency validation.
+- .github/workflows/mg010-checks.yml — MG-010 PR typecheck, build, backend and browser verification.
 
 ## Run locally
 Requires Node.js 22.13+ (uses built-in `node:sqlite`; tested on Node 24.13.0, Windows 11). Room data is stored in `data/mineguard.sqlite` (gitignored; set `MINEGUARD_DB` to change it, delete the file to reset all rooms).
