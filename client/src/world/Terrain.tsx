@@ -9,12 +9,14 @@ const HIGH = new THREE.Color('#8b8a5c');
 
 interface Props {
   world: WorldDefinition;
+  /** Optional BITM imagery draped over the existing simulated elevation. */
+  imagery?: THREE.Texture | null;
   onPointerMove?: (e: ThreeEvent<PointerEvent>) => void;
   onPointerLeave?: () => void;
   onClick?: (e: ThreeEvent<MouseEvent>) => void;
 }
 
-export default function Terrain({ world, onPointerMove, onPointerLeave, onClick }: Props) {
+export default function Terrain({ world, imagery, onPointerMove, onPointerLeave, onClick }: Props) {
   const geometry = useMemo(() => {
     const width = world.xMax - world.xMin;
     const depth = world.zMax - world.zMin;
@@ -46,7 +48,11 @@ export default function Terrain({ world, onPointerMove, onPointerLeave, onClick 
       onPointerLeave={onPointerLeave}
       onClick={onClick}
     >
-      <meshStandardMaterial vertexColors roughness={0.95} flatShading={false} />
+      {imagery ? (
+        <meshStandardMaterial map={imagery} color="#ffffff" roughness={1} flatShading={false} />
+      ) : (
+        <meshStandardMaterial vertexColors roughness={0.95} flatShading={false} />
+      )}
     </mesh>
   );
 }
