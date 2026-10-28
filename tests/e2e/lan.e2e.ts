@@ -104,9 +104,13 @@ test('MG-011 CI: desktop Red + emulated mobile Blue connect by non-loopback IPv4
     // Force a simulated mobile network outage. Socket.IO must rejoin its
     // original public room once networking resumes; no private data is added.
     await mobile.setOffline(true);
+    // Chromium's offline emulation does not always close already-established
+    // WebSocket transports. Simulate the actual transport break explicitly
+    // while the mobile browser is offline, then verify the app's reconnect UX.
+    for (const socket of instance.io.sockets.sockets.values()) socket.conn.close();
     await blue.waitForFunction(() =>
       document.querySelector('[data-testid="blue-room"]')?.textContent?.includes('reconnecting'),
-    undefined, { timeout: 25000 });
+    undefined, { timeout: 15000 });
     await mobile.setOffline(false);
     await blue.waitForFunction(() =>
       document.querySelector('[data-testid="blue-room"]')?.textContent?.includes('live'),
