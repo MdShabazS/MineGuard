@@ -57,8 +57,9 @@
     },
     "MG-008": {
       "owner": "Rahil",
-      "state": "TODO",
-      "evidence": null
+      "state": "IN_PROGRESS",
+      "evidence": null,
+      "startedBy": "Rahil"
     },
     "MG-009": {
       "owner": "Shabaz",
