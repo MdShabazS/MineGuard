@@ -22,9 +22,10 @@
     },
     "MG-003": {
       "owner": "Shabaz",
-      "state": "IN_PROGRESS",
-      "evidence": null,
-      "startedBy": "Shabaz"
+      "state": "DONE",
+      "evidence": "docs/specs/SCENARIO_CONTRACT.md",
+      "startedBy": "Shabaz",
+      "completedBy": "Shabaz"
     },
     "MG-004": {
       "owner": "Rahil",
