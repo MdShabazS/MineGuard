@@ -9,6 +9,7 @@ import type { AddressInfo } from 'node:net';
 import { after, before, test } from 'node:test';
 import { chromium, type Browser } from 'playwright-core';
 import { clientDist, createMineGuardServer } from '../../server/src/app.js';
+import { visiblePixelDifference } from '../helpers/screenshot-difference.js';
 
 assert.ok(fs.existsSync(path.join(clientDist, 'index.html')), 'Build frontend first');
 const app = createMineGuardServer({ dbPath: ':memory:', autoTick: false });
@@ -62,32 +63,7 @@ test('LIVE BITM imagery: actual cross-origin Esri photo tiles render, not just a
 
     // Decode screenshot pixels in an in-memory browser canvas. No imagery
     // screenshots or real map bytes are saved, redistributed or cached.
-    const diff = await page.evaluate(async ({ a, b }) => {
-      const pix = async (base64: string) => {
-        const img = new Image();
-        img.src = 'data:image/png;base64,' + base64;
-        await img.decode();
-        const scratch = document.createElement('canvas');
-        scratch.width = img.naturalWidth;
-        scratch.height = img.naturalHeight;
-        const ctx = scratch.getContext('2d')!;
-        ctx.drawImage(img, 0, 0);
-        return ctx.getImageData(0, 0, scratch.width, scratch.height);
-      };
-      const p = await pix(a), q = await pix(b);
-      let changed = 0, total = 0;
-      for (let y = Math.floor(p.height * 0.2); y < p.height * 0.8; y += 10) {
-        for (let x = Math.floor(p.width * 0.2); x < p.width * 0.8; x += 10) {
-          const i = (y * p.width + x) * 4;
-          const delta = Math.abs(p.data[i] - q.data[i]) +
-            Math.abs(p.data[i+1] - q.data[i+1]) +
-            Math.abs(p.data[i+2] - q.data[i+2]);
-          if (delta > 75) changed++;
-          total++;
-        }
-      }
-      return changed / Math.max(1, total);
-    }, { a: before.toString('base64'), b: after.toString('base64') });
+    const diff = await visiblePixelDifference(page, before, after, 0.2, 10);
     assert.ok(diff > 0.10, 'Actual visible pixels must change materially; delta fraction=' + diff);
     console.log('LIVE BITM photo visible: ' + tileStatus + ', material pixel change=' + diff.toFixed(3));
   } finally {
