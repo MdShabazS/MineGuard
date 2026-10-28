@@ -146,6 +146,10 @@ export default function WorldView({ onPick, renderScene, overlay, crosshair, cam
   const { world } = state;
   const imageryUrl = mapMode === 'IMPORT' ? importedUrl : null;
   const realMap = mapMode !== 'ORIGINAL';
+  // A satellite map should open like a real map: north-up, straight overhead.
+  // Existing Blue Follow/Top-Down selections still take precedence, and the
+  // original 3D world restores its original overview/orbit behavior.
+  const actualCameraMode: CameraMode = realMap && cameraMode === 'OVERVIEW' ? 'TOP_DOWN' : cameraMode;
   const chooseMode = (mode: 'ORIGINAL' | 'BITM' | 'IMPORT') => {
     if (mode === 'IMPORT' && !importedUrl) return;
     setMapError('');
@@ -189,13 +193,13 @@ export default function WorldView({ onPick, renderScene, overlay, crosshair, cam
               onPick?.(p);
             }}
             picked={picked}
-            camera={<CameraRig mode={cameraMode} follow={followTarget} resetKey={cameraResetKey} host={host} />}
+            camera={<CameraRig mode={actualCameraMode} follow={followTarget} resetKey={cameraResetKey} host={host} />}
           >
             {renderScene?.(world)}
           </Scene>
         </Canvas>
         <div className="pointer-events-none absolute left-3 top-3 rounded bg-black/60 px-2 py-1 text-[11px] font-semibold tracking-widest text-teal-200">
-          VIRTUAL WORLD · {world.terrainId}
+          {mapMode === 'BITM' ? 'SATELLITE PHOTO · BITM BALLARI' : mapMode === 'IMPORT' ? 'IMPORTED MAP · VISUAL ONLY' : `VIRTUAL WORLD · ${world.terrainId}`}
         </div>
         {overlay}
       </div>
@@ -235,7 +239,7 @@ export default function WorldView({ onPick, renderScene, overlay, crosshair, cam
         {realMap && (
           <div data-testid="bitm-map-metadata" className="space-y-1 text-[11px] text-slate-300">
             <p><strong>BITM Ballari</strong> · {campus.latitude.toFixed(6)}°N, {campus.longitude.toFixed(6)}°E · satellite photos across the 10 km × 10 km area (5 km radius from campus). Boundary outline optional.</p>
-            <p>Visual geographic overlay only. Virtual X/Z coordinates and simulated drone/sensing are unchanged. Terrain elevation remains <strong>illustrative, not real DEM elevation</strong>.</p>
+            <p><strong>Satellite is displayed top-down by default.</strong> Virtual X/Z and simulated drone/sensing stay unchanged. Underlying terrain elevation is <strong>illustrative, not real DEM elevation</strong>.</p>
             {mapMode === 'BITM' ? (
               <p className="flex flex-wrap gap-2">Online imagery: <a className="underline" href="https://www.esri.com/en-us/legal/terms/web-site-service" target="_blank" rel="noreferrer">Esri World Imagery / terms</a>. {BITM_AREA.attribution}. Not cached or downloadable by MineGuard.
                 {imageryState === 'loading' && <span data-testid="imagery-loading">Loading live satellite imagery…</span>}
