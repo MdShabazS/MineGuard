@@ -4,10 +4,12 @@ import { buildPlan, type CameraMode, type MissionPlan, type MissionPoint, type M
 import { normalizeCoordinate, type PublicRoomSnapshot } from '../../../shared/scenario';
 import { DEFAULT_FOOTPRINT, DEFAULT_SENSOR_MODE, FOOTPRINT_RADIUS, type FootprintProfile, type SensorMode } from '../../../shared/sensor';
 import type { Vec2 } from '../../../shared/world';
+import type { FrozenMissionResult } from '../../../shared/results';
 import { ApiFailure, missionApi } from '../lib/api';
 import { useMissionState } from '../lib/useMissionState';
 import { useRoomSocket } from '../lib/useRoomSocket';
 import { Controls, Findings, GridEditor, ManualEditor, SensorConfig, Segmented, Telemetry, btnBlue, btnGhost, field, type GridDraft, type ManualDraft } from '../blue/BluePanels';
+import ResultsPanel from '../blue/ResultsPanel';
 import MissionLayer from '../blue/MissionLayer';
 import { Card } from '../red/RedPanels';
 import type { FollowTarget } from '../world/CameraRig';
@@ -32,6 +34,7 @@ export default function DefencePortal() {
   // No attacker token: the server only ever sends public room + mission data to this page.
   const { join, connected } = useRoomSocket<PublicRoomSnapshot>(roomCode, undefined, handlers);
   const [selectedCandidate, setSelectedCandidate] = useState<string | null>(null);
+  const [revealedResult, setRevealedResult] = useState<FrozenMissionResult | null>(null);
   const room = join.status === 'joined' ? join.snapshot : null;
   const api = useMemo(() => (roomCode ? missionApi(roomCode) : null), [roomCode]);
 
@@ -217,6 +220,7 @@ export default function DefencePortal() {
                 follow={follow}
                 footprintRadius={FOOTPRINT_RADIUS[(showMission ? mission!.mission!.plan : routeShown ?? { footprintProfile: profile }).footprintProfile]}
                 candidates={candidates}
+                revealedTruth={revealedResult?.missionId === telemetry?.missionId ? revealedResult.truth : []}
                 selectedCandidate={selectedCandidate}
                 onSelectCandidate={setSelectedCandidate}
               />
@@ -251,6 +255,11 @@ export default function DefencePortal() {
               </div>
             }
           />
+          {room && roomFinished && telemetry?.status === 'FINISHED' && (
+            <Card title="POST-MISSION COMPARISON" testId="post-mission-comparison">
+              <ResultsPanel roomCode={room.roomCode} missionId={telemetry.missionId} onResult={setRevealedResult} />
+            </Card>
+          )}
           <Card title={`SIMULATED FINDINGS · ${candidates.length}`} testId="findings-panel">
             <Findings
               candidates={candidates}
