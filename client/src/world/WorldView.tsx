@@ -2,10 +2,10 @@ import { useCallback, useEffect, useRef, useState, type ChangeEvent, type Mutabl
 import { Canvas, type ThreeEvent } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import type { CameraMode } from '../../../shared/mission';
-import { BITM_AREA, bitmSatelliteImageUrl, virtualToGeographic } from '../../../shared/geographic';
+import { BITM_AREA, virtualToGeographic } from '../../../shared/geographic';
 import { isInBounds, roundCoord, sceneToWorld, worldToScene, type Vec2, type WorldDefinition } from '../../../shared/world';
 import CameraRig, { type FollowTarget } from './CameraRig';
-import Terrain from './Terrain';
+import Terrain, { type ImageryState } from './Terrain';
 import GeoOverlay from './GeoOverlay';
 import { Bounds, Landmarks, Roads, Trees } from './Features';
 import { useWorld } from './useWorld';
@@ -29,7 +29,7 @@ function ClickMarker({ world, at }: { world: WorldDefinition; at: Vec2 }) {
   );
 }
 
-function Scene({ world, onHover, onPick, picked, children, camera, imageryUrl, onImageryState, realMap }: {
+function Scene({ world, onHover, onPick, picked, children, camera, imageryUrl, onImageryState, realMap, bitmSatellite, showBoundary }: {
   world: WorldDefinition;
   onHover: (p: Vec2 | null) => void;
   onPick: (p: Vec2) => void;
@@ -37,8 +37,10 @@ function Scene({ world, onHover, onPick, picked, children, camera, imageryUrl, o
   children?: ReactNode;
   camera: ReactNode;
   imageryUrl: string | null;
-  onImageryState: (value: 'loading' | 'ready' | 'error') => void;
+  onImageryState: (value: ImageryState, details?: string) => void;
   realMap: boolean;
+  bitmSatellite: boolean;
+  showBoundary: boolean;
 }) {
   return (
     <>
@@ -49,6 +51,7 @@ function Scene({ world, onHover, onPick, picked, children, camera, imageryUrl, o
       <Terrain
         world={world}
         imageryUrl={imageryUrl}
+        bitmSatellite={bitmSatellite}
         onImageryState={onImageryState}
         onPointerMove={(e) => onHover(toWorldPoint(world, e))}
         onPointerLeave={() => onHover(null)}
@@ -61,7 +64,7 @@ function Scene({ world, onHover, onPick, picked, children, camera, imageryUrl, o
       {!realMap && <Roads world={world} />}
       {!realMap && <Trees world={world} />}
       {!realMap && <Landmarks world={world} />}
-      {realMap && <GeoOverlay world={world} />}
+      {realMap && showBoundary && <GeoOverlay world={world} />}
       <Bounds world={world} />
       {picked && <ClickMarker world={world} at={picked} />}
       {children}
@@ -101,14 +104,17 @@ export default function WorldView({ onPick, renderScene, overlay, crosshair, cam
   const importObjectUrl = useRef<string | null>(null);
   const [importFilename, setImportFilename] = useState('');
   const [mapError, setMapError] = useState('');
-  const [imageryState, setImageryState] = useState<'loading' | 'ready' | 'error' | null>(null);
+  const [imageryState, setImageryState] = useState<ImageryState | null>(null);
+  const [imageryDetails, setImageryDetails] = useState('');
+  const [showBoundary, setShowBoundary] = useState(false);
 
   useEffect(() => () => {
     if (importObjectUrl.current) URL.revokeObjectURL(importObjectUrl.current);
   }, []);
 
-  const onImageryState = useCallback((value: 'loading' | 'ready' | 'error') => {
+  const onImageryState = useCallback((value: ImageryState, details?: string) => {
     setImageryState(value);
+    setImageryDetails(details ?? '');
   }, []);
 
   const importImage = (event: ChangeEvent<HTMLInputElement>) => {
@@ -138,12 +144,13 @@ export default function WorldView({ onPick, renderScene, overlay, crosshair, cam
   }
 
   const { world } = state;
-  const imageryUrl = mapMode === 'BITM' ? bitmSatelliteImageUrl() : mapMode === 'IMPORT' ? importedUrl : null;
+  const imageryUrl = mapMode === 'IMPORT' ? importedUrl : null;
   const realMap = mapMode !== 'ORIGINAL';
   const chooseMode = (mode: 'ORIGINAL' | 'BITM' | 'IMPORT') => {
     if (mode === 'IMPORT' && !importedUrl) return;
     setMapError('');
     setImageryState(null);
+    setImageryDetails('');
     setMapMode(mode);
   };
   const campus = virtualToGeographic(100, 100);
@@ -152,7 +159,8 @@ export default function WorldView({ onPick, renderScene, overlay, crosshair, cam
       ref={host}
       data-camera-mode={cameraMode}
       data-map-mode={mapMode}
-      data-map-available={imageryState === 'ready' ? 'true' : 'false'}
+      data-map-available={imageryState === 'ready' || imageryState === 'partial' ? 'true' : 'false'}
+      data-map-tile-status={imageryDetails}
       data-testid="world-view"
       data-terrain-id={world.terrainId}
       data-checksum={world.checksum}
@@ -173,6 +181,8 @@ export default function WorldView({ onPick, renderScene, overlay, crosshair, cam
             imageryUrl={imageryUrl}
             onImageryState={onImageryState}
             realMap={realMap}
+            bitmSatellite={mapMode === 'BITM'}
+            showBoundary={showBoundary}
             onHover={setHover}
             onPick={(p) => {
               setPicked(p);
@@ -202,6 +212,13 @@ export default function WorldView({ onPick, renderScene, overlay, crosshair, cam
             className={mapMode === 'BITM' ? 'rounded bg-teal-500 px-3 py-1.5 text-xs font-semibold text-slate-950' : 'rounded border border-slate-600 px-3 py-1.5 text-xs text-slate-200'}>
             BITM Satellite · 5 km
           </button>
+          {realMap && (
+            <button type="button" data-testid="toggle-map-boundary" aria-pressed={showBoundary}
+              onClick={() => setShowBoundary((previous) => !previous)}
+              className="rounded border border-slate-600 px-3 py-1.5 text-xs text-slate-200">
+              {showBoundary ? 'Hide 5 km outline' : 'Show 5 km outline'}
+            </button>
+          )}
           {importedUrl && (
             <button type="button" data-testid="map-mode-import" aria-pressed={mapMode === 'IMPORT'}
               onClick={() => chooseMode('IMPORT')}
@@ -217,17 +234,18 @@ export default function WorldView({ onPick, renderScene, overlay, crosshair, cam
         </div>
         {realMap && (
           <div data-testid="bitm-map-metadata" className="space-y-1 text-[11px] text-slate-300">
-            <p><strong>BITM Ballari</strong> · {campus.latitude.toFixed(6)}°N, {campus.longitude.toFixed(6)}°E · 5 km radius (10 km × 10 km square image, circular boundary).</p>
+            <p><strong>BITM Ballari</strong> · {campus.latitude.toFixed(6)}°N, {campus.longitude.toFixed(6)}°E · satellite photos across the 10 km × 10 km area (5 km radius from campus). Boundary outline optional.</p>
             <p>Visual geographic overlay only. Virtual X/Z coordinates and simulated drone/sensing are unchanged. Terrain elevation remains <strong>illustrative, not real DEM elevation</strong>.</p>
             {mapMode === 'BITM' ? (
               <p className="flex flex-wrap gap-2">Online imagery: <a className="underline" href="https://www.esri.com/en-us/legal/terms/web-site-service" target="_blank" rel="noreferrer">Esri World Imagery / terms</a>. {BITM_AREA.attribution}. Not cached or downloadable by MineGuard.
                 {imageryState === 'loading' && <span data-testid="imagery-loading">Loading live satellite imagery…</span>}
-                {imageryState === 'ready' && <span data-testid="imagery-ready" className="text-emerald-300">Satellite imagery loaded</span>}
+                {imageryState === 'ready' && <span data-testid="imagery-ready" className="text-emerald-300">Satellite tiles displayed: {imageryDetails}</span>}
+                {imageryState === 'partial' && <span data-testid="imagery-partial" className="text-amber-300">Satellite partially available: {imageryDetails}</span>}
               </p>
             ) : (
               <p data-testid="imported-map-name">Local image: {importFilename} (browser-only; not uploaded). Source and image rights are the importer's responsibility. Image must be north-up and cover the shown 10 × 10 km square.</p>
             )}
-            {imageryState === 'error' && <p data-testid="imagery-error" className="text-amber-300">Imagery could not load. The original terrain is shown as a fallback; try again online or import an authorized image.</p>}
+            {imageryState === 'error' && <p role="alert" data-testid="imagery-error" className="text-amber-300">Satellite photo unavailable ({imageryDetails}). A plain simulated terrain fallback is displayed. Check network/CORS or import a licensed map image.</p>}
           </div>
         )}
         {mapError && <p role="alert" data-testid="map-import-error" className="text-xs text-rose-300">{mapError}</p>}
