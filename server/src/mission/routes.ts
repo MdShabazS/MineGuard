@@ -47,6 +47,7 @@ export function missionRoutes(store: RoomStore, engine: MissionEngine, sensor: S
     const review = req.body?.review;
     if (review !== 'NEW' && review !== 'REVIEWED') return res.status(400).json({ error: 'INVALID_REQUEST', message: 'review must be NEW or REVIEWED.' });
     const m = engine.latestMission(res.locals.room.id);
+    if (m && results.state(res.locals.room, m.id)?.revealed) return res.status(409).json({ error: 'REPORT_FROZEN', message: 'Candidate review cannot change after the report is revealed.' });
     const c = m ? sensor.review(m.id, req.params.candidateId, review) : null;
     if (!c) return res.status(404).json({ error: 'CANDIDATE_NOT_FOUND', message: 'No such candidate in this room\'s latest mission.' });
     onReview(res.locals.room);
@@ -57,6 +58,7 @@ export function missionRoutes(store: RoomStore, engine: MissionEngine, sensor: S
   // The room code deliberately permits sharing results only AFTER revelation.
   router.get('/:missionId/reveal-state', (req, res) => {
     const result = results.state(res.locals.room, req.params.missionId);
+    if (!result) return res.status(404).json({ error: 'MISSION_NOT_FOUND', message: 'Mission not found in this room.' });
     res.json(result);
   });
 
