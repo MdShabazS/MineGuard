@@ -1,10 +1,12 @@
-import { useRef, useState, type MutableRefObject, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ChangeEvent, type MutableRefObject, type ReactNode } from 'react';
 import { Canvas, type ThreeEvent } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import type { CameraMode } from '../../../shared/mission';
+import { BITM_AREA, bitmSatelliteImageUrl, virtualToGeographic } from '../../../shared/geographic';
 import { isInBounds, roundCoord, sceneToWorld, worldToScene, type Vec2, type WorldDefinition } from '../../../shared/world';
 import CameraRig, { type FollowTarget } from './CameraRig';
 import Terrain from './Terrain';
+import GeoOverlay from './GeoOverlay';
 import { Bounds, Landmarks, Roads, Trees } from './Features';
 import { useWorld } from './useWorld';
 
@@ -27,13 +29,16 @@ function ClickMarker({ world, at }: { world: WorldDefinition; at: Vec2 }) {
   );
 }
 
-function Scene({ world, onHover, onPick, picked, children, camera }: {
+function Scene({ world, onHover, onPick, picked, children, camera, imageryUrl, onImageryState, realMap }: {
   world: WorldDefinition;
   onHover: (p: Vec2 | null) => void;
   onPick: (p: Vec2) => void;
   picked: Vec2 | null;
   children?: ReactNode;
   camera: ReactNode;
+  imageryUrl: string | null;
+  onImageryState: (value: 'loading' | 'ready' | 'error') => void;
+  realMap: boolean;
 }) {
   return (
     <>
@@ -43,6 +48,8 @@ function Scene({ world, onHover, onPick, picked, children, camera }: {
       <directionalLight position={[80, 120, 40]} intensity={1.6} castShadow />
       <Terrain
         world={world}
+        imageryUrl={imageryUrl}
+        onImageryState={onImageryState}
         onPointerMove={(e) => onHover(toWorldPoint(world, e))}
         onPointerLeave={() => onHover(null)}
         onClick={(e) => {
@@ -51,9 +58,10 @@ function Scene({ world, onHover, onPick, picked, children, camera }: {
           if (p) onPick(p);
         }}
       />
-      <Roads world={world} />
-      <Trees world={world} />
-      <Landmarks world={world} />
+      {!realMap && <Roads world={world} />}
+      {!realMap && <Trees world={world} />}
+      {!realMap && <Landmarks world={world} />}
+      {realMap && <GeoOverlay world={world} />}
       <Bounds world={world} />
       {picked && <ClickMarker world={world} at={picked} />}
       {children}
@@ -85,6 +93,41 @@ export default function WorldView({ onPick, renderScene, overlay, crosshair, cam
   const [hover, setHover] = useState<Vec2 | null>(null);
   const [picked, setPicked] = useState<Vec2 | null>(null);
   const [rendered, setRendered] = useState(false);
+  // This map choice affects only a visible texture and labels, NEVER room
+  // truth, scenario coordinates or flight mechanics. The fixed BITM preset
+  // gives both portals the exact same geographic registration when selected.
+  const [mapMode, setMapMode] = useState<'ORIGINAL' | 'BITM' | 'IMPORT'>('ORIGINAL');
+  const [importedUrl, setImportedUrl] = useState<string | null>(null);
+  const importObjectUrl = useRef<string | null>(null);
+  const [importFilename, setImportFilename] = useState('');
+  const [mapError, setMapError] = useState('');
+  const [imageryState, setImageryState] = useState<'loading' | 'ready' | 'error' | null>(null);
+
+  useEffect(() => () => {
+    if (importObjectUrl.current) URL.revokeObjectURL(importObjectUrl.current);
+  }, []);
+
+  const onImageryState = useCallback((value: 'loading' | 'ready' | 'error') => {
+    setImageryState(value);
+  }, []);
+
+  const importImage = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 15 * 1024 * 1024) {
+      setMapError('Choose a licensed JPEG, PNG or WebP image no larger than 15 MB.');
+      event.target.value = '';
+      return;
+    }
+    if (importObjectUrl.current) URL.revokeObjectURL(importObjectUrl.current);
+    const url = URL.createObjectURL(file);
+    importObjectUrl.current = url;
+    setImportedUrl(url);
+    setImportFilename(file.name);
+    setMapError('');
+    setImageryState(null);
+    setMapMode('IMPORT');
+  };
 
   if (state.status !== 'ready') {
     return (
@@ -95,10 +138,21 @@ export default function WorldView({ onPick, renderScene, overlay, crosshair, cam
   }
 
   const { world } = state;
+  const imageryUrl = mapMode === 'BITM' ? bitmSatelliteImageUrl() : mapMode === 'IMPORT' ? importedUrl : null;
+  const realMap = mapMode !== 'ORIGINAL';
+  const chooseMode = (mode: 'ORIGINAL' | 'BITM' | 'IMPORT') => {
+    if (mode === 'IMPORT' && !importedUrl) return;
+    setMapError('');
+    setImageryState(null);
+    setMapMode(mode);
+  };
+  const campus = virtualToGeographic(100, 100);
   return (
     <section
       ref={host}
       data-camera-mode={cameraMode}
+      data-map-mode={mapMode}
+      data-map-available={imageryState === 'ready' ? 'true' : 'false'}
       data-testid="world-view"
       data-terrain-id={world.terrainId}
       data-checksum={world.checksum}
@@ -116,6 +170,9 @@ export default function WorldView({ onPick, renderScene, overlay, crosshair, cam
         >
           <Scene
             world={world}
+            imageryUrl={imageryUrl}
+            onImageryState={onImageryState}
+            realMap={realMap}
             onHover={setHover}
             onPick={(p) => {
               setPicked(p);
@@ -131,6 +188,49 @@ export default function WorldView({ onPick, renderScene, overlay, crosshair, cam
           VIRTUAL WORLD · {world.terrainId}
         </div>
         {overlay}
+      </div>
+      <div data-testid="map-selector" className="space-y-2 border-t border-white/10 bg-slate-950/95 px-4 py-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <strong className="mr-2 text-xs uppercase tracking-wider text-slate-300">Map view</strong>
+          <button type="button" data-testid="map-mode-original" aria-pressed={mapMode === 'ORIGINAL'}
+            onClick={() => chooseMode('ORIGINAL')}
+            className={mapMode === 'ORIGINAL' ? 'rounded bg-teal-500 px-3 py-1.5 text-xs font-semibold text-slate-950' : 'rounded border border-slate-600 px-3 py-1.5 text-xs text-slate-200'}>
+            Original 3D
+          </button>
+          <button type="button" data-testid="map-mode-bitm" aria-pressed={mapMode === 'BITM'}
+            onClick={() => chooseMode('BITM')}
+            className={mapMode === 'BITM' ? 'rounded bg-teal-500 px-3 py-1.5 text-xs font-semibold text-slate-950' : 'rounded border border-slate-600 px-3 py-1.5 text-xs text-slate-200'}>
+            BITM Satellite · 5 km
+          </button>
+          {importedUrl && (
+            <button type="button" data-testid="map-mode-import" aria-pressed={mapMode === 'IMPORT'}
+              onClick={() => chooseMode('IMPORT')}
+              className={mapMode === 'IMPORT' ? 'rounded bg-teal-500 px-3 py-1.5 text-xs font-semibold text-slate-950' : 'rounded border border-slate-600 px-3 py-1.5 text-xs text-slate-200'}>
+              Imported image
+            </button>
+          )}
+          <label className="ml-auto cursor-pointer rounded border border-dashed border-slate-500 px-3 py-1.5 text-xs text-slate-200">
+            Import licensed map
+            <input type="file" data-testid="import-map-image" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp"
+              onChange={importImage} className="sr-only" />
+          </label>
+        </div>
+        {realMap && (
+          <div data-testid="bitm-map-metadata" className="space-y-1 text-[11px] text-slate-300">
+            <p><strong>BITM Ballari</strong> · {campus.latitude.toFixed(6)}°N, {campus.longitude.toFixed(6)}°E · 5 km radius (10 km × 10 km square image, circular boundary).</p>
+            <p>Visual geographic overlay only. Virtual X/Z coordinates and simulated drone/sensing are unchanged. Terrain elevation remains <strong>illustrative, not real DEM elevation</strong>.</p>
+            {mapMode === 'BITM' ? (
+              <p className="flex flex-wrap gap-2">Online imagery: <a className="underline" href="https://www.esri.com/en-us/legal/terms/web-site-service" target="_blank" rel="noreferrer">Esri World Imagery / terms</a>. {BITM_AREA.attribution}. Not cached or downloadable by MineGuard.
+                {imageryState === 'loading' && <span data-testid="imagery-loading">Loading live satellite imagery…</span>}
+                {imageryState === 'ready' && <span data-testid="imagery-ready" className="text-emerald-300">Satellite imagery loaded</span>}
+              </p>
+            ) : (
+              <p data-testid="imported-map-name">Local image: {importFilename} (browser-only; not uploaded). Source and image rights are the importer's responsibility. Image must be north-up and cover the shown 10 × 10 km square.</p>
+            )}
+            {imageryState === 'error' && <p data-testid="imagery-error" className="text-amber-300">Imagery could not load. The original terrain is shown as a fallback; try again online or import an authorized image.</p>}
+          </div>
+        )}
+        {mapError && <p role="alert" data-testid="map-import-error" className="text-xs text-rose-300">{mapError}</p>}
       </div>
       <div className="grid gap-2 bg-white/5 px-4 py-3 text-sm sm:grid-cols-3">
         <div>
