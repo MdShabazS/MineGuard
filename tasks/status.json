@@ -77,9 +77,10 @@
       "completedBy": "Shabaz"
     },
     "MG-011": {
-      "owner": "Rahil",
-      "state": "TODO",
-      "evidence": null
+      "owner": "Shabaz",
+      "state": "IN_PROGRESS",
+      "evidence": null,
+      "startedBy": "Shabaz"
     },
     "MG-012": {
       "owner": "Shabaz",

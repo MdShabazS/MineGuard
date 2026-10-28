@@ -16,7 +16,8 @@
     "typecheck": "tsc -p client/tsconfig.json --noEmit && tsc -p server/tsconfig.json --noEmit",
     "test": "tsx --test server/test/*.test.ts",
     "task-gate": "node scripts/task-gate.mjs",
-    "test:e2e": "tsx --test --test-concurrency=1 tests/e2e/*.e2e.ts"
+    "test:e2e": "tsx --test --test-concurrency=1 tests/e2e/*.e2e.ts",
+    "lan:check": "node scripts/lan-preflight.mjs"
   },
   "dependencies": {
     "express": "^4.22.3",

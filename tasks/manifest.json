@@ -116,7 +116,7 @@
       "evidence": "tasks/evidence/MG-010.md"
     },
     "MG-011": {
-      "owner": "Rahil",
+      "owner": "Shabaz",
       "kind": "BUILD",
       "dependsOn": [
         "MG-010"
