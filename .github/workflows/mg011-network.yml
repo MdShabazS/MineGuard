@@ -1,0 +1,34 @@
+name: mineguard-network-smoke
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: mg011-network-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lan-and-mobile-emulation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Build production app
+        run: npm run build
+      - name: Install Chromium
+        run: npx --yes playwright@1.64.1 install --with-deps chromium
+      - name: Network interface / Socket.IO unit tests
+        run: npx tsx --test server/test/lan.test.ts
+      - name: Desktop and mobile-emulated network browser test
+        env:
+          MINEGUARD_E2E_BROWSER: chromium
+        run: npx tsx --test tests/e2e/lan.e2e.ts
