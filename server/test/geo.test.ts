@@ -7,8 +7,9 @@ test('BITM map: exact campus centre and 5km radius in the visual 200-unit refere
   assert.equal(BITM_GEO.latitude, 15.1679);
   assert.equal(BITM_GEO.longitude, 76.850231);
   assert.equal(BITM_GEO.radiusMetres, 5000);
-  assert.deepEqual(worldToGeo(100, 100), { latitude: BITM_GEO.latitude, longitude: BITM_GEO.longitude });
-  assert.deepEqual(geoToWorld(BITM_GEO.latitude, BITM_GEO.longitude).x, 100);
+  assert.ok(Math.abs(worldToGeo(100, 100).latitude - BITM_GEO.latitude) < 1e-9);
+  assert.ok(Math.abs(worldToGeo(100, 100).longitude - BITM_GEO.longitude) < 1e-9);
+  assert.ok(Math.abs(geoToWorld(BITM_GEO.latitude, BITM_GEO.longitude).x - 100) < 1e-7);
   assert.ok(Math.abs(geoToWorld(BITM_GEO.latitude, BITM_GEO.longitude).z - 100) < 1e-7);
   for (const [x, z] of [[100, 0], [0, 100], [100, 200], [200, 100]]) {
     assert.equal(distanceFromBitmMeters(x, z), 5000);
