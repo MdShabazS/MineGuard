@@ -1,6 +1,21 @@
-# Proposed HTTP/Socket Contract — Not Yet Implemented
+# HTTP/Socket Contract
 
-All endpoints below are a development target. Rahil must revise this document to match actual implementation before a BUILD task is accepted.
+Rahil must revise this document to match actual implementation before a BUILD task is accepted.
+
+## Implemented (MG-001)
+Types live in `shared/protocol.ts`.
+
+`GET /api/health` → `200` JSON:
+```json
+{ "status": "ok", "service": "mineguard-server", "version": "0.1.0", "uptimeSeconds": 12, "serverTime": "2026-10-28T17:07:20.141Z", "socketClients": 2 }
+```
+Any other `/api/*` path → `404 {"error":"Not found"}`.
+
+Socket.IO (same origin, default path `/socket.io`):
+- Server → client `server:hello` on connect: `{ socketId, serverTime, version }`.
+- Client → server `system:ping(echo: string, ack)` → ack `{ pong: true, serverTime, echo }` (echo truncated to 64 chars). Connectivity check only.
+
+Everything below this line is a proposed target, not yet implemented.
 
 ## Suggested HTTP
 POST /api/rooms -> create room, public join code/URL, private attacker link ONCE.

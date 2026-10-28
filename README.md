@@ -1,6 +1,6 @@
 # MineGuard V0.1 — Red Team / Blue Team Digital Twin
 
-**Status:** Requirements approved; engineering implementation NOT STARTED. **Deadline:** 24-hour prototype.
+**Status:** MG-001 app scaffold built and smoke-tested (see tasks/evidence/MG-001.md); 3D world and simulation features NOT STARTED. **Deadline:** 24-hour prototype.
 **Authoritative source of truth:** This GitHub repository. No task is done based on a chat message or an unpushed local workspace.
 
 ## Goal
@@ -35,6 +35,25 @@ This is an educational simulator, NOT operational landmine detection, actual bur
 - TASK_BOARD.md — serial responsibilities, deliverables, dependencies.
 - scripts/task-gate.mjs, tasks/manifest.json, tasks/status.json — machine task gate.
 - .github/workflows/task-gate.yml — GitHub Actions validation.
+
+## Run locally
+Requires Node.js 20+ (tested on Node 24.13.0, Windows 11).
+
+```bash
+npm install
+npm run dev        # Express + Socket.IO on :3000, Vite client on http://localhost:5173 (proxies /api and /socket.io)
+npm run build      # build the client into client/dist
+npm start          # production: one origin on http://localhost:3000 serving client, /api and Socket.IO (PORT env to change)
+npm test           # server smoke tests (run "npm run build" first to include the served-client test)
+npm run typecheck  # TypeScript checks for client and server
+```
+
+Routes: `/` home, `/red` Red Team (attacker) portal, `/blue` Blue Team (defence) portal, `/api/health` server status.
+
+## Code layout
+- `client/` — Vite + React + TypeScript + Tailwind; `src/pages/` holds Home, AttackerPortal, DefencePortal.
+- `server/` — Express + Socket.IO (`src/app.ts` builds the server, `src/index.ts` starts it); `test/` holds smoke tests (node:test via tsx).
+- `shared/protocol.ts` — types and event names shared by client and server.
 
 ## Planned technical stack
 Vite + React + TypeScript, Three.js/React Three Fiber, Node + Express + Socket.IO, SQLite for runtime persistence, bundled terrain assets. A single laptop-hosted backend serves same-world online tunnel access and local Wi-Fi backup. Neither hosting nor implementation has been completed yet.

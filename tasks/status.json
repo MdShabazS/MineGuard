@@ -8,9 +8,10 @@
     },
     "MG-001": {
       "owner": "Rahil",
-      "state": "IN_PROGRESS",
-      "evidence": null,
-      "startedBy": "Rahil"
+      "state": "DONE",
+      "evidence": "tasks/evidence/MG-001.md",
+      "startedBy": "Rahil",
+      "completedBy": "Rahil"
     },
     "MG-002": {
       "owner": "Rahil",
