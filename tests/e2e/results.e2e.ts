@@ -97,6 +97,13 @@ test('MG-010 explicit reveal and printable report via Blue browser', async () =>
   assert.match(html, /SIMULATED/);
   assert.doesNotMatch(html, new RegExp(attackerToken));
   assert.doesNotMatch(html, /\/red#room=/);
+  // Real headless Chromium PDF output from the standalone A4 report page.
+  const printPage = await context.newPage();
+  await printPage.goto(base + root + id + '/report');
+  const pdf = await printPage.pdf({ format: 'A4', printBackground: true });
+  assert.equal(pdf.subarray(0, 4).toString(), '%PDF');
+  assert.ok(pdf.byteLength > 2000, 'PDF should contain the report, not a blank page');
+  await printPage.close();
   await page.reload();
   await page.waitForSelector('[data-testid="revealed-results"]', { timeout: 20000 });
   assert.equal(await page.locator('[data-testid="report-truth"] tbody tr').count(), 3);
