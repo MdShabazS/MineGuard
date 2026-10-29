@@ -162,7 +162,8 @@ export function geoTilesForBounds(bounds: GeoBounds, size: number, zoom: number)
   const y1 = latitudeToTileY(bounds.south, zoom);
   const nx = Math.floor(x1) - Math.floor(x0) + 1;
   const ny = Math.floor(y1) - Math.floor(y0) + 1;
-  if (nx * ny > 96) throw Error('View is too wide for this satellite resolution');
+  // Planning may consider a larger footprint; only <=64 final tiles load.
+  if (nx * ny > 2048) throw Error('View is too wide for this satellite resolution');
   const tiles: SatelliteTile[] = [];
   for (let y = Math.floor(y0); y <= Math.floor(y1); y++) {
     for (let x = Math.floor(x0); x <= Math.floor(x1); x++) {
