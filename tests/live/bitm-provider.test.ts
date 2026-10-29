@@ -65,7 +65,37 @@ test('LIVE BITM imagery: actual cross-origin Esri photo tiles render, not just a
     // screenshots or real map bytes are saved, redistributed or cached.
     const diff = await visiblePixelDifference(page, before, after, 0.2, 10);
     assert.ok(diff > 0.10, 'Actual visible pixels must change materially; delta fraction=' + diff);
-    console.log('LIVE BITM photo visible: ' + tileStatus + ', material pixel change=' + diff.toFixed(3));
+    console.log('LIVE BITM overview visible: ' + tileStatus + ', material pixel change=' + diff.toFixed(3));
+
+    // The original z14 overview is not enough to identify individual
+    // buildings. Prove that pressing zoom requests and displays genuine
+    // higher-native-resolution Esri tiles near BITM, not enlarged z14 pixels.
+    const detailResponses: { status: number; type: string | null; url: string }[] = [];
+    page.on('response', (response) => {
+      if (/World_Imagery\/MapServer\/tile\/1[7-9]\//.test(response.url())) {
+        detailResponses.push({
+          status: response.status(),
+          type: response.headers()['content-type'] ?? null,
+          url: response.url(),
+        });
+      }
+    });
+    for (let i = 0; i < 6; i++) {
+      await page.click('[data-testid="satellite-zoom-in"]');
+    }
+    await page.waitForFunction(() => {
+      const element = document.querySelector('[data-testid="world-view"]');
+      return element?.getAttribute('data-satellite-detail-state') === 'ready' &&
+        Number(element.getAttribute('data-satellite-detail-zoom')) >= 18 &&
+        Number(element.getAttribute('data-satellite-detail-loaded')) >= 8;
+    }, undefined, { timeout: 80000 });
+    const detailZoom = await page.locator('[data-testid="world-view"]').getAttribute('data-satellite-detail-zoom');
+    const detailStatus = await page.locator('[data-testid="satellite-detail-status"]').innerText();
+    assert.ok(detailResponses.filter((r) => r.status === 200 && r.type?.startsWith('image/')).length >= 8,
+      'Higher zoom must receive real photo images from Esri, not a scaled overview');
+    assert.ok(detailStatus.includes('higher-detail image tiles'));
+    console.log('LIVE BITM CLOSE-UP visible: z' + detailZoom + ', ' + detailStatus +
+      ', high-resolution requests=' + detailResponses.length);
   } finally {
     await page.close();
   }
