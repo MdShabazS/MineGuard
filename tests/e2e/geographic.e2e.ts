@@ -149,13 +149,19 @@ test('BITM satellite supports zoom buttons, panning, real image detail requests 
     assert.notEqual(await page.locator('[data-testid="world-view"]').getAttribute('data-camera'), zoomCamera,
       'Left-drag should pan the satellite map');
 
-    const widthBefore = (await page.locator('[data-testid="world-view"]').boundingBox())!.width;
+    const map = page.locator('[data-testid="world-view"]');
+    const widthBefore = (await map.boundingBox())!.width;
     await page.click('[data-testid="satellite-expand"]');
-    const widthAfter = (await page.locator('[data-testid="world-view"]').boundingBox())!.width;
-    assert.ok(widthAfter > widthBefore * 1.2, 'Expand map should materially enlarge the visible satellite');
+    const widthAfter = (await map.boundingBox())!.width;
+    const expandedPosition = await map.evaluate((element) => getComputedStyle(element).position);
+    assert.equal(expandedPosition, 'fixed', 'Expand must switch to a viewport-filling map');
+    assert.ok(widthAfter >= page.viewportSize()!.width * 0.93 && widthAfter >= widthBefore - 2,
+      'Expanded map must occupy nearly the browser width even when the normal panel is already wide');
     await page.keyboard.press('Escape');
-    const widthClosed = (await page.locator('[data-testid="world-view"]').boundingBox())!.width;
-    assert.ok(widthClosed < widthAfter * 0.85);
+    const closedPosition = await map.evaluate((element) => getComputedStyle(element).position);
+    assert.notEqual(closedPosition, 'fixed', 'Escape should restore the embedded map');
+    const widthClosed = (await map.boundingBox())!.width;
+    assert.ok(widthClosed <= widthAfter + 2);
 
     await page.click('[data-testid="satellite-recenter"]');
     await page.waitForTimeout(500);
