@@ -17,7 +17,7 @@ export default function MapCameraActions({ command }: { command: MapCameraComman
   useEffect(() => {
     if (!controls || command.serial === 0 || !controls.enabled) return;
     // Cancel the animated camera preset before any manual adjustment.
-    controls.dispatchEvent({ type: 'start' });
+    controls.dispatchEvent({ type: 'start' } as Parameters<typeof controls.dispatchEvent>[0]);
     if (command.action === 'CENTRE') {
       controls.target.set(0, 0, 0);
       camera.position.set(0, 290, 0.01);
