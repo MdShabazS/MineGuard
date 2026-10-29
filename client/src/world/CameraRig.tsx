@@ -42,6 +42,15 @@ export default function CameraRig({ mode, follow, resetKey, host }: Props) {
     if (mode === 'FOLLOW') followTarget.current.copy(controls.target);
   }, [mode, resetKey, controls]);
 
+  // A wheel gesture, two-finger zoom, map button or drag should take control
+  // from the animated preset immediately instead of being undone next frame.
+  useEffect(() => {
+    if (!controls) return;
+    const takeManualControl = () => { goal.current = null; };
+    controls.addEventListener('start', takeManualControl);
+    return () => controls.removeEventListener('start', takeManualControl);
+  }, [controls]);
+
   const desired = new THREE.Vector3();
   useFrame((state, dt) => {
     const k = 1 - Math.exp(-Math.min(dt, 0.1) * 4);
