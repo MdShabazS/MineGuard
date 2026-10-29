@@ -5,6 +5,7 @@ import { test } from 'node:test';
 import {
   BITM_AREA, BITM_TILE_ZOOM, BITM_TEXTURE_SIZE, bitmBounds, bitmSatelliteTiles, esriWorldImageryTileUrl, geographicToVirtual,
   METERS_PER_SIMULATED_UNIT, virtualToGeographic, withinBitmRadius,
+  geoTilesForBounds, virtualRectToGeoBounds, planBitmDetail,
 } from '../../shared/geographic.js';
 import { createWorldDefinition, isInBounds, worldToScene } from '../../shared/world.js';
 
@@ -72,4 +73,56 @@ test('satellite selection does not mutate the fictional world or its terrain che
   assert.deepEqual(after, before);
   assert.deepEqual(worldToScene(after, 75, 125), virtualPoint);
   assert.ok(isInBounds(after, 75, 125));
+});
+
+
+test('progressive BITM detail requests only bounded, visible geographic images', () => {
+  assert.equal(planBitmDetail(100, 100, 290, 1.5), null, 'Far overview preserves full z14 base');
+  const samples = [
+    { distance: 90, minZoom: 14, maxZoom: 16 },
+    { distance: 40, minZoom: 15, maxZoom: 17 },
+    { distance: 20, minZoom: 16, maxZoom: 18 },
+    { distance: 7, minZoom: 17, maxZoom: 19 },
+  ];
+  let prior = 14;
+  for (const example of samples) {
+    const p = planBitmDetail(100, 100, example.distance, 1.4);
+    assert.ok(p);
+    assert.ok(p.zoom >= example.minZoom && p.zoom <= example.maxZoom);
+    assert.ok(p.zoom >= prior, 'Zooming closer must not reduce image resolution');
+    assert.ok(p.tiles > 0 && p.tiles <= 64, 'No bulk satellite downloads');
+    const tiles = geoTilesForBounds(p.bounds, BITM_TEXTURE_SIZE, p.zoom);
+    assert.equal(tiles.length, p.tiles);
+    assert.ok(tiles.every((t) => t.zoom === p.zoom));
+    assert.ok(p.xMin >= 0 && p.zMin >= 0 && p.xMax <= 200 && p.zMax <= 200);
+    const nw = virtualToGeographic(p.xMin, p.zMin);
+    const se = virtualToGeographic(p.xMax, p.zMax);
+    assert.ok(Math.abs(p.bounds.west - nw.longitude) < 1e-10);
+    assert.ok(Math.abs(p.bounds.north - nw.latitude) < 1e-10);
+    assert.ok(Math.abs(p.bounds.east - se.longitude) < 1e-10);
+    assert.ok(Math.abs(p.bounds.south - se.latitude) < 1e-10);
+    prior = p.zoom;
+  }
+});
+
+test('progressive detail requests are stable during small pan and change after larger pan', () => {
+  const a = planBitmDetail(100, 100, 18, 1.4);
+  const b = planBitmDetail(100.1, 99.9, 18, 1.4);
+  const c = planBitmDetail(118, 112, 18, 1.4);
+  assert.ok(a && b && c);
+  assert.equal(a.key, b.key, 'Tiny camera motion must not reload new satellite imagery');
+  assert.notEqual(a.key, c.key, 'Panning needs new geographic detail');
+  assert.equal(a.zoom, c.zoom, 'Pan retains native detail level');
+  const edge = planBitmDetail(198, 198, 7, 2.4);
+  assert.ok(edge);
+  assert.ok(edge.xMin >= 0 && edge.xMax <= 200 && edge.zMin >= 0 && edge.zMax <= 200);
+});
+
+test('satellite detail enforces valid rectangles and rejects inappropriate tile requests', () => {
+  assert.throws(() => virtualRectToGeoBounds(5, 5, 205, 10));
+  assert.throws(() => virtualRectToGeoBounds(10, 10, 9, 20));
+  assert.throws(() => geoTilesForBounds(bitmBounds(), 0, 18));
+  assert.throws(() => geoTilesForBounds(bitmBounds(), 1536, 23));
+  assert.equal(planBitmDetail(NaN, 100, 20, 1), null);
+  assert.equal(planBitmDetail(100, 100, 20, 0), null);
 });

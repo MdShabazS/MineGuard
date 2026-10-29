@@ -37,7 +37,7 @@ after(async () => {
 async function open(pathname: string): Promise<Page> {
   const page = await browser.newPage({ viewport: { width: 1240, height: 920 } });
   await page.route('https://services.arcgisonline.com/**', async (route) => {
-    assert.match(route.request().url(), /World_Imagery\/MapServer\/tile\/14\/\d+\/\d+/);
+    assert.match(route.request().url(), /World_Imagery\/MapServer\/tile\/1[4-9]\/\d+\/\d+/);
     await route.fulfill({ status: 200, contentType: 'image/png', headers: { 'access-control-allow-origin': '*' }, body: TILE_PNG });
   });
   await page.goto(origin + pathname);
@@ -99,6 +99,74 @@ test('licensed user image import stays browser-local and original terrain can be
     assert.equal(await page.locator('[data-testid="world-view"]').getAttribute('data-map-mode'), 'ORIGINAL');
     await page.click('[data-testid="map-mode-import"]');
     await page.waitForSelector('[data-testid="world-view"][data-map-available="true"]', { timeout: 15000 });
+  } finally {
+    await page.close();
+  }
+});
+
+
+test('BITM satellite supports zoom buttons, panning, real image detail requests and a full-size map', {
+  timeout: 90000,
+}, async () => {
+  const page = await open('/blue');
+  try {
+    const detailedRequests: string[] = [];
+    page.on('request', (r) => {
+      if (/World_Imagery\/MapServer\/tile\/1[7-9]\//.test(r.url())) detailedRequests.push(r.url());
+    });
+    await page.click('[data-testid="map-mode-bitm"]');
+    await page.waitForSelector('[data-testid="world-view"][data-map-available="true"]', { timeout: 20000 });
+    const baseChecksum = await page.locator('[data-testid="world-view"]').getAttribute('data-checksum');
+
+    const canvas = page.locator('[data-testid="world-view"] canvas');
+    const startCamera = await page.locator('[data-testid="world-view"]').getAttribute('data-camera');
+    for (let i = 0; i < 6; i++) {
+      await page.click('[data-testid="satellite-zoom-in"]');
+    }
+    await page.waitForFunction(() => {
+      const world = document.querySelector('[data-testid="world-view"]');
+      return world?.getAttribute('data-satellite-detail-state') === 'ready' &&
+        Number(world.getAttribute('data-satellite-detail-zoom')) >= 18 &&
+        Number(world.getAttribute('data-satellite-detail-loaded')) >= 8;
+    }, undefined, { timeout: 35000 });
+    assert.ok(detailedRequests.length >= 8,
+      'Zooming in must load actual higher-resolution tile URLs, not upscale z14 only');
+    assert.match(await page.locator('[data-testid="satellite-detail-status"]').innerText(), /higher-detail image tiles/);
+    assert.equal(await page.locator('[data-testid="world-view"]').getAttribute('data-checksum'), baseChecksum);
+    const zoomCamera = await page.locator('[data-testid="world-view"]').getAttribute('data-camera');
+    assert.notEqual(startCamera, zoomCamera);
+
+    // Drag must move the map, not place a route waypoint or trigger camera orbit.
+    const rect = await canvas.boundingBox();
+    assert.ok(rect);
+    const mouseX = rect.x + rect.width * 0.55;
+    const mouseY = rect.y + rect.height * 0.50;
+    await page.mouse.move(mouseX, mouseY);
+    await page.mouse.down();
+    await page.mouse.move(mouseX + 110, mouseY + 55, { steps: 8 });
+    await page.mouse.up();
+    await page.waitForTimeout(650);
+    assert.notEqual(await page.locator('[data-testid="world-view"]').getAttribute('data-camera'), zoomCamera,
+      'Left-drag should pan the satellite map');
+
+    const map = page.locator('[data-testid="world-view"]');
+    const widthBefore = (await map.boundingBox())!.width;
+    await page.click('[data-testid="satellite-expand"]');
+    const widthAfter = (await map.boundingBox())!.width;
+    const expandedPosition = await map.evaluate((element) => getComputedStyle(element).position);
+    assert.equal(expandedPosition, 'fixed', 'Expand must switch to a viewport-filling map');
+    assert.ok(widthAfter >= page.viewportSize()!.width * 0.93 && widthAfter >= widthBefore - 2,
+      'Expanded map must occupy nearly the browser width even when the normal panel is already wide');
+    await page.keyboard.press('Escape');
+    const closedPosition = await map.evaluate((element) => getComputedStyle(element).position);
+    assert.notEqual(closedPosition, 'fixed', 'Escape should restore the embedded map');
+    const widthClosed = (await map.boundingBox())!.width;
+    assert.ok(widthClosed <= widthAfter + 2);
+
+    await page.click('[data-testid="satellite-recenter"]');
+    await page.waitForTimeout(500);
+    await page.click('[data-testid="map-mode-original"]');
+    assert.equal(await page.locator('[data-testid="world-view"]').getAttribute('data-map-mode'), 'ORIGINAL');
   } finally {
     await page.close();
   }

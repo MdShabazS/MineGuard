@@ -1,13 +1,12 @@
 import * as THREE from 'three';
 import {
   BITM_TEXTURE_SIZE, bitmSatelliteTiles, esriWorldImageryTileUrl,
-  type SatelliteTile,
+  geoTilesForBounds, type GeoBounds, type SatelliteTile,
 } from '../../../shared/geographic';
 
-/** Request only the ~5×5 currently visible Esri satellite tiles for BITM.
- * This canvas exists solely in browser memory for the displayed texture.
- * It is never persisted, downloaded, exposed as a public image, or sent
- * back to the app's own server.
+/** Live display imagery only. No cache, downloads, exports or server proxy.
+ * A base image covers the BITM 10 km square; a separate, camera-driven
+ * high-resolution patch is only requested for the portion being inspected.
  */
 export interface SatelliteTextureResult {
   texture: THREE.CanvasTexture;
@@ -44,11 +43,12 @@ function imageAt(url: string, signal: AbortSignal): Promise<HTMLImageElement> {
   });
 }
 
-export async function loadBitmSatelliteTexture(signal: AbortSignal): Promise<SatelliteTextureResult> {
-  const tiles = bitmSatelliteTiles();
+async function composeTiles(
+  signal: AbortSignal, tiles: SatelliteTile[], size: number,
+): Promise<SatelliteTextureResult> {
+  if (!tiles.length || tiles.length > 96) throw Error('Satellite request exceeds display tile limit');
   const canvas = document.createElement('canvas');
-  canvas.width = BITM_TEXTURE_SIZE;
-  canvas.height = BITM_TEXTURE_SIZE;
+  canvas.width = canvas.height = size;
   const ctx = canvas.getContext('2d', { alpha: false });
   if (!ctx) throw Error('This browser does not support satellite image compositing.');
   ctx.fillStyle = '#182634';
@@ -57,9 +57,9 @@ export async function loadBitmSatelliteTexture(signal: AbortSignal): Promise<Sat
   let loaded = 0;
   let firstFailure: string | null = null;
   let next = 0;
-  const results: ({ tile: SatelliteTile; image: HTMLImageElement } | null)[] = Array(tiles.length).fill(null);
+  const images: ({ tile: SatelliteTile; image: HTMLImageElement } | null)[] =
+    Array(tiles.length).fill(null);
 
-  // Limit concurrent network requests; a single 10km area is about 25 tiles.
   const run = async () => {
     while (!signal.aborted && next < tiles.length) {
       const index = next++;
@@ -67,7 +67,7 @@ export async function loadBitmSatelliteTexture(signal: AbortSignal): Promise<Sat
       try {
         const image = await imageAt(esriWorldImageryTileUrl(tile), signal);
         if (signal.aborted) return;
-        results[index] = { tile, image };
+        images[index] = { tile, image };
         loaded++;
       } catch (err) {
         if (!signal.aborted && firstFailure === null) {
@@ -80,14 +80,13 @@ export async function loadBitmSatelliteTexture(signal: AbortSignal): Promise<Sat
   if (signal.aborted) throw Error('Map request cancelled');
   if (!loaded) throw Error(firstFailure ?? 'No satellite tiles could be loaded');
 
-  // Preserve north-up order: Mercator tile rows increase southward, matching
-  // the Three PlaneGeometry's north (-Z) to top-of-texture orientation.
-  for (const result of results) {
+  // Canvas top is north and PlaneGeometry texture top is north after Three
+  // handles CanvasTexture.flipY. Tile columns increase east and rows south.
+  for (const result of images) {
     if (!result) continue;
     const { tile, image } = result;
     ctx.drawImage(image, tile.drawX, tile.drawY, tile.drawWidth, tile.drawHeight);
   }
-
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.anisotropy = 4;
@@ -96,6 +95,20 @@ export async function loadBitmSatelliteTexture(signal: AbortSignal): Promise<Sat
   texture.wrapS = THREE.ClampToEdgeWrapping;
   texture.wrapT = THREE.ClampToEdgeWrapping;
   texture.needsUpdate = true;
-
   return { texture, loaded, total: tiles.length, firstFailure };
+}
+
+/** Existing z14 full-extent image remains the reliable base layer. */
+export function loadBitmSatelliteTexture(signal: AbortSignal): Promise<SatelliteTextureResult> {
+  return composeTiles(signal, bitmSatelliteTiles(), BITM_TEXTURE_SIZE);
+}
+
+/** Only the zoomed, visible geographic rectangle is requested at z15–19.
+ * No background/offscreen harvesting. Abort on pan/zoom and dispose textures.
+ */
+export function loadVisibleSatelliteDetail(
+  signal: AbortSignal, bounds: GeoBounds, zoom: number,
+): Promise<SatelliteTextureResult> {
+  const tiles = geoTilesForBounds(bounds, BITM_TEXTURE_SIZE, zoom);
+  return composeTiles(signal, tiles, BITM_TEXTURE_SIZE);
 }

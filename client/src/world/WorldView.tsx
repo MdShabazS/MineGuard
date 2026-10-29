@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type MutableRefObject, type ReactNode } from 'react';
 import { Canvas, type ThreeEvent } from '@react-three/fiber';
+import * as THREE from 'three';
 import { OrbitControls } from '@react-three/drei';
 import type { CameraMode } from '../../../shared/mission';
 import { BITM_AREA, virtualToGeographic } from '../../../shared/geographic';
@@ -7,6 +8,8 @@ import { isInBounds, roundCoord, sceneToWorld, worldToScene, type Vec2, type Wor
 import CameraRig, { type FollowTarget } from './CameraRig';
 import Terrain, { type ImageryState } from './Terrain';
 import GeoOverlay from './GeoOverlay';
+import SatelliteDetail, { type DetailInfo } from './SatelliteDetail';
+import MapCameraActions, { type MapCameraCommand } from './MapCameraActions';
 import { Bounds, Landmarks, Roads, Trees } from './Features';
 import { useWorld } from './useWorld';
 
@@ -29,7 +32,7 @@ function ClickMarker({ world, at }: { world: WorldDefinition; at: Vec2 }) {
   );
 }
 
-function Scene({ world, onHover, onPick, picked, children, camera, imageryUrl, onImageryState, realMap, bitmSatellite, showBoundary }: {
+function Scene({ world, onHover, onPick, picked, children, camera, imageryUrl, onImageryState, realMap, bitmSatellite, showBoundary, mapCommand, onDetail }: {
   world: WorldDefinition;
   onHover: (p: Vec2 | null) => void;
   onPick: (p: Vec2) => void;
@@ -41,6 +44,8 @@ function Scene({ world, onHover, onPick, picked, children, camera, imageryUrl, o
   realMap: boolean;
   bitmSatellite: boolean;
   showBoundary: boolean;
+  mapCommand: MapCameraCommand;
+  onDetail: (info: DetailInfo) => void;
 }) {
   return (
     <>
@@ -65,10 +70,28 @@ function Scene({ world, onHover, onPick, picked, children, camera, imageryUrl, o
       {!realMap && <Trees world={world} />}
       {!realMap && <Landmarks world={world} />}
       {realMap && showBoundary && <GeoOverlay world={world} />}
+      {bitmSatellite && <SatelliteDetail world={world} onDetail={onDetail} />}
       <Bounds world={world} />
       {picked && <ClickMarker world={world} at={picked} />}
       {children}
-      <OrbitControls makeDefault enableDamping target={[0, 0, 0]} minDistance={25} maxDistance={340} maxPolarAngle={1.35} />
+      <OrbitControls
+        makeDefault enableDamping target={[0, 0, 0]}
+        minDistance={realMap ? 5 : 25}
+        maxDistance={340}
+        maxPolarAngle={realMap ? Math.PI / 2 : 1.35}
+        zoomSpeed={realMap ? 1.25 : 1}
+        enablePan
+        mouseButtons={realMap ? {
+          LEFT: THREE.MOUSE.PAN,
+          MIDDLE: THREE.MOUSE.DOLLY,
+          RIGHT: THREE.MOUSE.PAN,
+        } : undefined}
+        touches={realMap ? {
+          ONE: THREE.TOUCH.PAN,
+          TWO: THREE.TOUCH.DOLLY_PAN,
+        } : undefined}
+      />
+      {realMap && <MapCameraActions command={mapCommand} />}
       {camera}
     </>
   );
@@ -107,6 +130,23 @@ export default function WorldView({ onPick, renderScene, overlay, crosshair, cam
   const [imageryState, setImageryState] = useState<ImageryState | null>(null);
   const [imageryDetails, setImageryDetails] = useState('');
   const [showBoundary, setShowBoundary] = useState(false);
+  const [detailInfo, setDetailInfo] = useState<DetailInfo>({
+    status: 'overview', zoom: null, loaded: 0, total: 0, message: '',
+  });
+  const [mapCommand, setMapCommand] = useState<MapCameraCommand>({ serial: 0, action: 'CENTRE' });
+  const [mapExpanded, setMapExpanded] = useState(false);
+  const onDetail = useCallback((info: DetailInfo) => setDetailInfo(info), []);
+  const controlMap = (action: MapCameraCommand['action']) =>
+    setMapCommand((previous) => ({ serial: previous.serial + 1, action }));
+
+  useEffect(() => {
+    if (!mapExpanded) return;
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMapExpanded(false);
+    };
+    document.addEventListener('keydown', escape);
+    return () => document.removeEventListener('keydown', escape);
+  }, [mapExpanded]);
 
   useEffect(() => () => {
     if (importObjectUrl.current) URL.revokeObjectURL(importObjectUrl.current);
@@ -155,6 +195,7 @@ export default function WorldView({ onPick, renderScene, overlay, crosshair, cam
     setMapError('');
     setImageryState(null);
     setImageryDetails('');
+    setDetailInfo({ status: 'overview', zoom: null, loaded: 0, total: 0, message: '' });
     setMapMode(mode);
   };
   const campus = virtualToGeographic(100, 100);
@@ -165,14 +206,19 @@ export default function WorldView({ onPick, renderScene, overlay, crosshair, cam
       data-map-mode={mapMode}
       data-map-available={imageryState === 'ready' || imageryState === 'partial' ? 'true' : 'false'}
       data-map-tile-status={imageryDetails}
+      data-satellite-detail-state={detailInfo.status}
+      data-satellite-detail-zoom={detailInfo.zoom ?? ''}
+      data-satellite-detail-loaded={detailInfo.loaded}
       data-testid="world-view"
       data-terrain-id={world.terrainId}
       data-checksum={world.checksum}
       data-rendered={rendered ? 'true' : 'false'}
       data-picked={picked ? `${picked[0]},${picked[1]}` : ''}
-      className="overflow-hidden rounded-xl border border-white/10"
+      className={mapExpanded
+        ? 'fixed inset-2 z-[90] overflow-auto rounded-xl border border-teal-500/50 bg-slate-950 shadow-2xl'
+        : 'overflow-hidden rounded-xl border border-white/10'}
     >
-      <div className={`relative h-[60vh] min-h-[360px] ${crosshair ? 'cursor-crosshair' : ''}`}>
+      <div className={`relative ${mapExpanded ? 'h-[calc(100dvh-172px)] min-h-[400px]' : realMap ? 'h-[68vh] min-h-[420px]' : 'h-[60vh] min-h-[360px]'} ${crosshair ? 'cursor-crosshair' : ''}`}>
         <Canvas
           shadows
           dpr={[1, 2]}
@@ -187,6 +233,8 @@ export default function WorldView({ onPick, renderScene, overlay, crosshair, cam
             realMap={realMap}
             bitmSatellite={mapMode === 'BITM'}
             showBoundary={showBoundary}
+            onDetail={onDetail}
+            mapCommand={mapCommand}
             onHover={setHover}
             onPick={(p) => {
               setPicked(p);
@@ -202,6 +250,22 @@ export default function WorldView({ onPick, renderScene, overlay, crosshair, cam
           {mapMode === 'BITM' ? 'SATELLITE PHOTO · BITM BALLARI' : mapMode === 'IMPORT' ? 'IMPORTED MAP · VISUAL ONLY' : `VIRTUAL WORLD · ${world.terrainId}`}
         </div>
         {overlay}
+        {realMap && (
+          <div className="absolute bottom-3 right-3 z-20 flex flex-wrap items-center gap-1 rounded-lg border border-white/25 bg-slate-950/90 p-1.5 shadow-xl"
+            data-testid="satellite-camera-controls">
+            <button type="button" data-testid="satellite-zoom-in" aria-label="Zoom into satellite map"
+              title="Zoom in for higher-resolution imagery" onClick={() => controlMap('ZOOM_IN')}
+              className="rounded bg-slate-800 px-3 py-1.5 text-lg font-bold text-white hover:bg-teal-700">+</button>
+            <button type="button" data-testid="satellite-zoom-out" aria-label="Zoom out on satellite map"
+              onClick={() => controlMap('ZOOM_OUT')}
+              className="rounded bg-slate-800 px-3 py-1.5 text-lg font-bold text-white hover:bg-teal-700">−</button>
+            <button type="button" data-testid="satellite-recenter" onClick={() => controlMap('CENTRE')}
+              className="rounded bg-slate-800 px-2.5 py-2 text-xs font-semibold text-white hover:bg-teal-700">Centre BITM</button>
+            <button type="button" data-testid="satellite-expand" aria-pressed={mapExpanded}
+              onClick={() => setMapExpanded(!mapExpanded)}
+              className="rounded bg-slate-800 px-2.5 py-2 text-xs font-semibold text-white hover:bg-teal-700">{mapExpanded ? 'Exit full map' : 'Expand map'}</button>
+          </div>
+        )}
       </div>
       <div data-testid="map-selector" className="space-y-2 border-t border-white/10 bg-slate-950/95 px-4 py-3">
         <div className="flex flex-wrap items-center gap-2">
@@ -239,7 +303,17 @@ export default function WorldView({ onPick, renderScene, overlay, crosshair, cam
         {realMap && (
           <div data-testid="bitm-map-metadata" className="space-y-1 text-[11px] text-slate-300">
             <p><strong>BITM Ballari</strong> · {campus.latitude.toFixed(6)}°N, {campus.longitude.toFixed(6)}°E · satellite photos across the 10 km × 10 km area (5 km radius from campus). Boundary outline optional.</p>
-            <p><strong>Satellite is displayed top-down by default.</strong> Virtual X/Z and simulated drone/sensing stay unchanged. Underlying terrain elevation is <strong>illustrative, not real DEM elevation</strong>.</p>
+            <p><strong>Zoom with +/−, mouse wheel or two-finger pinch.</strong> Drag the map to pan; use <strong>Expand map</strong> for a larger view. High-detail satellite tiles load only as you zoom closer. Virtual X/Z and simulated drone/sensing stay unchanged. Underlying terrain elevation is <strong>illustrative, not real DEM elevation</strong>.</p>
+            {mapMode === 'BITM' && detailInfo.zoom !== null && (
+              <p data-testid="satellite-detail-status" className={detailInfo.status === 'error' ? 'text-amber-300' : 'text-sky-200'}>
+                {detailInfo.status === 'loading'
+                  ? 'Loading closer satellite detail…'
+                  : detailInfo.status === 'error'
+                    ? 'Closer tiles unavailable; wider satellite image remains visible. ' + detailInfo.message
+                    : detailInfo.loaded + '/' + detailInfo.total + ' higher-detail image tiles (' + 'level ' + detailInfo.zoom + ') ' +
+                      (detailInfo.status === 'partial' ? 'partially loaded' : 'visible')}
+              </p>
+            )}
             {mapMode === 'BITM' ? (
               <p className="flex flex-wrap gap-2">Online imagery: <a className="underline" href="https://www.esri.com/en-us/legal/terms/web-site-service" target="_blank" rel="noreferrer">Esri World Imagery / terms</a>. {BITM_AREA.attribution}. Not cached or downloadable by MineGuard.
                 {imageryState === 'loading' && <span data-testid="imagery-loading">Loading live satellite imagery…</span>}
@@ -271,7 +345,7 @@ export default function WorldView({ onPick, renderScene, overlay, crosshair, cam
         </div>
       </div>
       <p className="bg-white/5 px-4 pb-3 text-xs text-slate-500">
-        Drag to orbit, scroll to zoom, right-drag to pan. Coordinates are fictional X/Z units, not GPS.
+        {realMap ? 'Satellite: left-drag to pan, scroll / pinch or +/− to zoom, Expand map for more space. Click without dragging to place a virtual point. Maps are display-only, not GPS navigation.' : 'Drag to orbit, scroll to zoom, right-drag to pan. Coordinates are fictional X/Z units, not GPS.'}
       </p>
     </section>
   );

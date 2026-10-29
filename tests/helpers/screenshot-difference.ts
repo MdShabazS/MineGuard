@@ -18,16 +18,18 @@ export async function visiblePixelDifference(
     imageA.src = ${JSON.stringify(aSrc)};
     imageB.src = ${JSON.stringify(bSrc)};
     await Promise.all([imageA.decode(), imageB.decode()]);
-    if (imageA.naturalWidth !== imageB.naturalWidth ||
-        imageA.naturalHeight !== imageB.naturalHeight) throw Error('Screenshot dimension mismatch');
+    // The satellite map may use a taller viewport than the original
+    // terrain. Normalize their screenshots before comparing sampled pixels.
+    const compareWidth = Math.min(imageA.naturalWidth, imageB.naturalWidth);
+    const compareHeight = Math.min(imageA.naturalHeight, imageB.naturalHeight);
     const c1 = document.createElement('canvas');
     const c2 = document.createElement('canvas');
-    c1.width = c2.width = imageA.naturalWidth;
-    c1.height = c2.height = imageA.naturalHeight;
+    c1.width = c2.width = compareWidth;
+    c1.height = c2.height = compareHeight;
     const x = c1.getContext('2d');
     const y = c2.getContext('2d');
-    x.drawImage(imageA, 0, 0);
-    y.drawImage(imageB, 0, 0);
+    x.drawImage(imageA, 0, 0, compareWidth, compareHeight);
+    y.drawImage(imageB, 0, 0, compareWidth, compareHeight);
     const a = x.getImageData(0, 0, c1.width, c1.height);
     const b = y.getImageData(0, 0, c2.width, c2.height);
     let changed = 0, total = 0;

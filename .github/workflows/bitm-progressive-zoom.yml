@@ -1,0 +1,35 @@
+name: bitm-progressive-zoom-visual
+on:
+  pull_request:
+    paths:
+      - 'shared/geographic.ts'
+      - 'client/src/world/**'
+      - 'tests/e2e/geographic.e2e.ts'
+      - 'tests/live/bitm-provider.test.ts'
+      - '.github/workflows/bitm-progressive-zoom.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: bitm-zoom-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  zoom-and-panning:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npx --yes playwright@1.64.1 install --with-deps chromium
+      - name: Verify map zoom, pan, high-detail tiles and fullscreen in browser
+        env:
+          MINEGUARD_E2E_BROWSER: chromium
+        run: npx tsx --test tests/e2e/geographic.e2e.ts
